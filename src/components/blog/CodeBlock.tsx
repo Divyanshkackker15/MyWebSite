@@ -1,10 +1,9 @@
 import { useRef, useState, type ComponentProps } from 'react'
-import { Check, Copy } from 'lucide-react'
 
 /**
- * Replaces <pre> in MDX. The code is already syntax-highlighted at build time
- * by Shiki (zero JS for colours); this only adds the language label and a
- * copy button.
+ * Replaces <pre> in MDX. Colours come from Shiki at build time (no
+ * highlighting JavaScript in the browser); this adds the language label
+ * and a copy button.
  */
 export function CodeBlock(props: ComponentProps<'pre'> & { 'data-language'?: string }) {
   const ref = useRef<HTMLPreElement>(null)
@@ -12,13 +11,11 @@ export function CodeBlock(props: ComponentProps<'pre'> & { 'data-language'?: str
   const lang = props['data-language']
 
   const copy = async () => {
-    const text = ref.current?.innerText ?? ''
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(ref.current?.innerText ?? '')
       setCopied(true)
       setTimeout(() => setCopied(false), 1600)
     } catch {
-      // clipboard blocked: select the text so the reader can copy it manually
       const range = document.createRange()
       if (ref.current) {
         range.selectNodeContents(ref.current)
@@ -30,16 +27,10 @@ export function CodeBlock(props: ComponentProps<'pre'> & { 'data-language'?: str
   }
 
   return (
-    <div className="not-prose overflow-hidden rounded-xl border border-wire">
-      <div className="flex items-center justify-between border-b border-wire bg-hull px-4 py-2">
-        <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-dim">{lang && lang !== 'text' ? lang : 'code'}</span>
-        <button
-          type="button"
-          onClick={copy}
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-dim transition-colors hover:bg-hull-2 hover:text-ink"
-          aria-label="Copy code"
-        >
-          {copied ? <Check className="h-3.5 w-3.5 text-ok" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5" aria-hidden="true" />}
+    <div className="not-prose my-8 overflow-hidden border border-line">
+      <div className="flex items-center justify-between border-b border-line bg-coal px-4 py-2.5">
+        <span className="mono text-grey">{lang && lang !== 'text' ? lang : 'code'}</span>
+        <button type="button" onClick={copy} className="mono text-grey transition-colors hover:text-white" aria-label="Copy code">
           <span aria-live="polite">{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>

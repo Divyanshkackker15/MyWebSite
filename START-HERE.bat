@@ -3,7 +3,7 @@ title Divyansh Kackker portfolio
 rem Double-click this file to install (first time only) and start the site.
 cd /d "%~dp0"
 
-where node >/dev/null 2>nul
+where node >nul 2>nul
 if errorlevel 1 (
   echo.
   echo Node.js is not installed.

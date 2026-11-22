@@ -20,8 +20,6 @@ import { postsIndex } from './plugins/posts-index'
  * and scripts/prerender.mjs turns every route into a static HTML file.
  */
 export default defineConfig({
-  // relative asset URLs for the embeddable preview build
-  base: process.env.VITE_PREVIEW_EMBED ? './' : '/',
   plugins: [
     {
       enforce: 'pre',
@@ -55,11 +53,6 @@ export default defineConfig({
   ],
   build: {
     // three.js is big but only ever loaded lazily on desktop
-    chunkSizeWarningLimit: 800,
-    // preview build only: embed the Latin font files in the CSS, because the
-    // sandboxed preview page can't load font files from its own folder
-    ...(process.env.VITE_PREVIEW_EMBED
-      ? { assetsInlineLimit: (file: string) => /-latin-(wght|400)-.*\.woff2$/.test(file) || undefined }
-      : {}),
+    chunkSizeWarningLimit: 900,
   },
 })

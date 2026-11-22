@@ -14,8 +14,4 @@ declare module '*.mdx' {
 }
 
 interface ImportMetaEnv {
-  /** Formspree form id, e.g. "xyzzabcd" (from https://formspree.io/forms). Leave empty to disable the form. */
-  readonly VITE_FORMSPREE_ID?: string
-  /** set only for the shareable preview build: relative paths + in-memory routing */
-  readonly VITE_PREVIEW_EMBED?: string
 }

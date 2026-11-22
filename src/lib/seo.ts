@@ -20,7 +20,7 @@ export interface PageMeta {
 }
 
 const SITE = profile.site
-const DEFAULT_DESC = `${profile.name} — ${profile.title} in ${profile.location}. Spring Boot, microservices, Kafka and REST API design. Available for work and freelance projects.`
+const DEFAULT_DESC = `${profile.name}, Java backend developer in ${profile.location}. Writing about Spring Boot, databases, distributed systems and system design.`
 
 export function getMeta(pathname: string): PageMeta {
   const path = pathname.replace(/\/+$/, '') || '/'
@@ -36,9 +36,9 @@ export function getMeta(pathname: string): PageMeta {
   }
   if (path === '/blog') {
     return {
-      title: `Blog · ${profile.name}`,
+      title: `Writing · ${profile.name}`,
       description:
-        'Notes from the backend: what I learn building with Java, Spring Boot, microservices, Kafka, Docker and system design.',
+        'Notes from the backend: what I build, break and learn with Java, Spring Boot, databases and system design.',
       path: '/blog',
       image: '/og/blog.png',
       type: 'website',
@@ -107,8 +107,8 @@ function jsonLd(meta: PageMeta, url: string, image: string) {
     name: profile.name,
     jobTitle: profile.title,
     url: SITE,
-    image: SITE + '/images/avatar-512.png',
-    address: { '@type': 'PostalAddress', addressLocality: 'Bhopal', addressRegion: 'Madhya Pradesh', addressCountry: 'IN' },
+    image: SITE + '/images/portrait-bw.webp',
+    address: { '@type': 'PostalAddress', addressLocality: 'Bhopal', addressCountry: 'IN' },
     sameAs: Object.values(profile.links).filter(Boolean),
   }
   if (meta.type === 'article') {

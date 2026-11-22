@@ -26,7 +26,7 @@ export function Toc({ headings, variant = 'aside' }: { headings: PostMeta['headi
   if (!headings.length) return null
 
   const list = (
-    <ol className="grid gap-1 border-l border-wire">
+    <ol className="grid gap-0.5 border-l border-line">
       {headings.map((h) => (
         <li key={h.id}>
           <a
@@ -36,8 +36,8 @@ export function Toc({ headings, variant = 'aside' }: { headings: PostMeta['headi
               scrollToTarget(lenis, h.id)
               history.replaceState(null, '', `#${h.id}`)
             }}
-            className={`-ml-px block border-l py-1.5 text-sm leading-snug transition-colors ${h.depth === 3 ? 'pl-7' : 'pl-4'} ${
-              active === h.id ? 'border-amber text-ink' : 'border-transparent text-dim hover:text-ink'
+            className={`-ml-px block border-l py-1.5 text-[0.85rem] leading-snug transition-colors ${h.depth === 3 ? 'pl-7' : 'pl-4'} ${
+              active === h.id ? 'border-white text-white' : 'border-transparent text-grey hover:text-white'
             }`}
           >
             {h.text}
@@ -49,8 +49,8 @@ export function Toc({ headings, variant = 'aside' }: { headings: PostMeta['headi
 
   if (variant === 'inline') {
     return (
-      <details className="rounded-2xl border border-wire bg-hull p-4 lg:hidden">
-        <summary className="label cursor-pointer select-none text-ink">On this page</summary>
+      <details className="frame p-4 lg:hidden">
+        <summary className="mono cursor-pointer select-none text-white">On this page</summary>
         <nav aria-label="Table of contents" className="mt-4">
           {list}
         </nav>
@@ -59,7 +59,7 @@ export function Toc({ headings, variant = 'aside' }: { headings: PostMeta['headi
   }
   return (
     <nav aria-label="Table of contents" className="grid gap-4">
-      <p className="label">On this page</p>
+      <p className="mono text-grey">On this page</p>
       {list}
     </nav>
   )

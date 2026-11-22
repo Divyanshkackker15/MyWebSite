@@ -1,35 +1,34 @@
-/* Self-hosted, open-licence fonts (SIL OFL) — no request to Google at runtime */
-@import '@fontsource-variable/bricolage-grotesque/wght.css';
-@import '@fontsource-variable/geist/wght.css';
-@import '@fontsource-variable/jetbrains-mono/wght.css';
-@import '@fontsource/instrument-serif/400.css';
-@import '@fontsource/instrument-serif/400-italic.css';
+/* Self-hosted, open-licence fonts (SIL OFL); nothing is requested from Google at runtime */
+@import '@fontsource-variable/inter/opsz.css';
+@import '@fontsource-variable/geist-mono/wght.css';
 
 @import 'tailwindcss';
 
 /* ------------------------------------------------------------------
-   Design tokens. Every colour on the site comes from here, so changing
-   the palette is a one-place edit. Tailwind turns each --color-* into
-   utilities like bg-void, text-amber, border-wire.
+   Design tokens. Colour lives in light (3D renders, image glows), never
+   in text or buttons, so the interface itself is black, white and grey.
 ------------------------------------------------------------------- */
 @theme {
-  --color-void: #070a12; /* page background (deep navy) */
-  --color-hull: #0e1320; /* cards, panels */
-  --color-hull-2: #141a2b; /* raised inside cards */
-  --color-wire: #1f2840; /* hairlines and borders */
-  --color-ink: #e9edf5; /* main text 16.9:1 */
-  --color-dim: #8c95ab; /* secondary text 6.6:1 */
-  --color-ghost: #5a6378; /* large text before it "lights up" */
-  --color-amber: #ffb547; /* primary accent */
-  --color-cyan: #4fd1ff; /* data-flow accent */
-  --color-ok: #5be49b; /* availability */
+  --color-black: #000000;
+  --color-coal: #111111; /* raised surfaces */
+  --color-coal-2: #161616;
+  --color-line: #1f1f1f; /* hairlines */
+  --color-line-2: #2a2a2a;
+  --color-white: #f5f5f5;
+  --color-grey: #8a8a8a; /* secondary text, 5.9:1 on black */
+  --color-mute: #777777; /* quiet labels, 4.7:1 on black */
 
-  --font-display: 'Bricolage Grotesque Variable', 'Arial Narrow', system-ui, sans-serif;
-  --font-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-  --font-sans: 'Geist Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* light colours, used only by renders and image glows */
+  --color-volt: #3d7bff;
+  --color-violet: #8b5cf6;
+  --color-magenta: #e0409a;
+  --color-emerald: #1fbf8a;
 
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --font-sans: 'Inter Variable', Inter, 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.76, 0, 0.24, 1);
 }
 
 @layer base {
@@ -37,205 +36,377 @@
     color-scheme: dark;
   }
   html {
-    background: var(--color-void);
-    color: var(--color-ink);
+    background: var(--color-black);
+    color: var(--color-white);
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
   }
   body {
     font-family: var(--font-sans);
-    background: var(--color-void);
+    font-optical-sizing: auto;
+    font-feature-settings: 'ss01', 'cv11';
+    background: var(--color-black);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     overflow-x: clip;
   }
   ::selection {
-    background: color-mix(in oklab, var(--color-amber) 35%, transparent);
-    color: var(--color-ink);
+    background: var(--color-white);
+    color: var(--color-black);
   }
   :focus-visible {
-    outline: 2px solid var(--color-amber);
-    outline-offset: 3px;
-    border-radius: 6px;
+    outline: 1px solid var(--color-white);
+    outline-offset: 4px;
   }
   h1, h2, h3, h4 {
     text-wrap: balance;
+    font-weight: 450;
   }
-  /* Lenis recommended styles */
+  p {
+    text-wrap: pretty;
+  }
   html.lenis, html.lenis body { height: auto; }
   .lenis.lenis-smooth { scroll-behavior: auto !important; }
   .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
   .lenis.lenis-stopped { overflow: hidden; }
 }
 
-/* the custom cursor replaces the system one only on mouse devices (see Cursor.tsx) */
-html.has-cursor, html.has-cursor a, html.has-cursor button { cursor: none; }
-html.has-cursor input, html.has-cursor textarea, html.has-cursor select { cursor: text; }
-
-/* preloader is skipped before first paint when the inline script in index.html adds .booted */
-html.booted .preloader { display: none; }
-
 @layer components {
-  /* mono label used for "[ 04 / 10 ] PROJECTS" and small captions */
-  .label {
+  /* uppercase mono captions: "01", "SYSTEM DESIGN · 8 MIN" */
+  .mono {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
-    line-height: 1.2;
+    font-size: 0.6875rem;
+    line-height: 1.5;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--color-dim);
   }
-  .container-x {
+  .wrap {
     width: 100%;
-    max-width: 1280px;
+    max-width: 1440px;
     margin-inline: auto;
-    padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
-    padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
   }
   @media (min-width: 768px) {
-    .container-x { padding-left: 2.5rem; padding-right: 2.5rem; }
+    .wrap { padding-left: 2.5rem; padding-right: 2.5rem; }
   }
-  .hairline { border-color: var(--color-wire); }
-  .glow-amber {
-    filter: drop-shadow(0 0 40px color-mix(in oklab, var(--color-amber) 22%, transparent));
+  /* display sizes: tight tracking, light weight, like a printed poster */
+  .display-xl {
+    font-size: clamp(3.25rem, 11.5vw, 12.5rem);
+    line-height: 0.9;
+    letter-spacing: -0.055em;
+    font-weight: 450;
   }
-  .grid-bg {
-    background-image:
-      linear-gradient(to right, color-mix(in oklab, var(--color-wire) 55%, transparent) 1px, transparent 1px),
-      linear-gradient(to bottom, color-mix(in oklab, var(--color-wire) 55%, transparent) 1px, transparent 1px);
-    background-size: 72px 72px;
-    mask-image: radial-gradient(70% 60% at 50% 40%, #000 30%, transparent 80%);
+  .display-hero {
+    font-size: clamp(2.9rem, 7.4vw, 8.75rem);
+    line-height: 0.94;
+    letter-spacing: -0.052em;
+    font-weight: 450;
   }
-}
+  .display-l {
+    font-size: clamp(2.75rem, 8vw, 8.5rem);
+    line-height: 0.92;
+    letter-spacing: -0.05em;
+    font-weight: 450;
+  }
+  .display-m {
+    font-size: clamp(2rem, 4.6vw, 4.5rem);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-weight: 450;
+  }
+  .title {
+    font-size: clamp(1.375rem, 2vw, 1.875rem);
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+    font-weight: 450;
+  }
+  /* white-to-grey type, the one gradient on the site */
+  .ink-fade {
+    background: linear-gradient(100deg, #f5f5f5 20%, #9a9a9a 75%, #6e6e6e);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* hairline frame with corner ticks */
+  .frame {
+    position: relative;
+    border: 1px solid var(--color-line);
+    background: var(--color-coal);
+  }
+  .ticks::before, .ticks::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    transition: transform 0.6s var(--ease-out), border-color 0.6s var(--ease-out);
+  }
+  .ticks::before { top: -7px; left: -7px; border-top: 1px solid var(--color-grey); border-left: 1px solid var(--color-grey); }
+  .ticks::after { bottom: -7px; right: -7px; border-bottom: 1px solid var(--color-grey); border-right: 1px solid var(--color-grey); }
+  .group:hover .ticks::before, .ticks:hover::before { transform: translate(-4px, -4px); border-color: var(--color-white); }
+  .group:hover .ticks::after, .ticks:hover::after { transform: translate(4px, 4px); border-color: var(--color-white); }
 
-@keyframes spin-slow { to { transform: rotate(360deg); } }
-@keyframes ping-soft {
-  0% { box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 55%, transparent); }
-  100% { box-shadow: 0 0 0 10px transparent; }
-}
-@keyframes scroll-cue {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(200%); }
-}
-@keyframes marquee { to { transform: translateX(-50%); } }
-.animate-spin-slow { animation: spin-slow 60s linear infinite; }
-.animate-ping-soft { animation: ping-soft 1.8s ease-out infinite; }
-.animate-scroll-cue { animation: scroll-cue 1.8s var(--ease-out-expo) infinite; }
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-spin-slow, .animate-ping-soft, .animate-scroll-cue, .animate-marquee { animation: none !important; }
-  html { scroll-behavior: auto; }
+  /* text link with an underline that draws in on hover */
+  .link {
+    background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+    transition: background-size 0.5s var(--ease-out), color 0.3s;
+  }
+  .link:hover, .link:focus-visible { background-size: 100% 1px; }
 }
 
 /* ------------------------------------------------------------------
-   Article typography for MDX posts (/blog/:slug)
+   Reveal on scroll: elements start shifted and transparent, and the
+   observer in useReveal() adds .is-in. Without JS everything shows.
+------------------------------------------------------------------- */
+.js [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 32px, 0);
+  transition: opacity 1.1s var(--ease-out), transform 1.4s var(--ease-out);
+  transition-delay: calc(var(--d, 0) * 1ms);
+}
+.js [data-reveal='clip'] {
+  opacity: 1;
+  transform: none;
+  clip-path: inset(100% 0 0 0);
+  transition: clip-path 1.4s var(--ease-in-out);
+  transition-delay: calc(var(--d, 0) * 1ms);
+}
+.js [data-reveal='clip'] > * {
+  transform: scale(1.12);
+  transition: transform 1.8s var(--ease-out);
+  transition-delay: calc(var(--d, 0) * 1ms);
+}
+.js [data-reveal].is-in { opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+.js [data-reveal='clip'].is-in > * { transform: none; }
+
+/* headline lines that rise out of a mask */
+.line-mask { display: block; overflow: hidden; padding-bottom: 0.24em; margin-bottom: -0.24em; }
+.line-mask > span { display: block; }
+.js .rise > .line-mask > span {
+  transform: translate3d(0, 110%, 0);
+  transition: transform 1.3s var(--ease-out);
+  transition-delay: calc(var(--d, 0) * 1ms + var(--i, 0) * 90ms);
+}
+.js .rise.is-in > .line-mask > span { transform: none; }
+
+/* words that light up as you scroll (opacity set inline by ScrollWords) */
+.scroll-word { transition: opacity 0.25s linear; }
+.js .scroll-word { opacity: 0.38; }
+
+/* article panels: the light behind the image warms up on hover */
+.panel-image { transition: box-shadow 1s var(--ease-out), border-color 0.6s; }
+.group:hover .panel-image, .group:focus-within .panel-image {
+  border-color: var(--color-line-2);
+  box-shadow: 0 40px 120px -50px color-mix(in srgb, var(--glow) 70%, transparent);
+}
+
+/* sideways article row (HorizontalTrack) */
+.htrack__viewport { overflow: hidden; }
+.htrack__row { display: flex; gap: 1.25rem; padding-inline: max(1rem, calc((100vw - 1440px) / 2 + 2.5rem)); will-change: transform; }
+.htrack__item { flex: 0 0 auto; width: min(82vw, 420px); }
+.htrack__item--l { width: min(88vw, 640px); }
+.htrack__item--end { min-height: 360px; }
+.htrack[data-mode='swipe'] .htrack__viewport { overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 5rem; }
+.htrack[data-mode='swipe'] .htrack__viewport::-webkit-scrollbar { display: none; }
+.htrack[data-mode='swipe'] .htrack__item { scroll-snap-align: start; scroll-margin-left: 1rem; }
+@media (min-width: 768px) { .htrack__row { padding-inline: 2.5rem; } }
+@media (min-width: 1024px) {
+  .htrack__row { gap: 2rem; padding-right: 8vw; }
+  .htrack__item { width: 30vw; max-width: 460px; }
+  .htrack__item--l { width: 44vw; max-width: 720px; }
+  .htrack[data-mode='pin'] .htrack__frame { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+  .htrack[data-mode='pin'] .htrack__row { align-items: flex-start; }
+}
+
+/* ------------------------------------------------------------------
+   Opening sequence (home, first visit per tab). Pure CSS so it starts
+   at first paint, before any JavaScript has loaded.
+------------------------------------------------------------------- */
+@property --count {
+  syntax: '<integer>';
+  initial-value: 0;
+  inherits: false;
+}
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  animation: intro-out 0.6s ease 2.6s forwards;
+}
+.intro__bg { position: absolute; inset: 0; background: #000; }
+.intro__line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 245, 245, 0.55) 30%, rgba(245, 245, 245, 0.55) 70%, transparent);
+  transform: scaleX(0);
+  animation: intro-line 0.9s var(--ease-in-out) 0.1s forwards, intro-fade 0.5s ease 1.7s forwards;
+}
+.intro__window {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(50% 50% 50% 50%);
+  animation: intro-open 0.7s var(--ease-in-out) 0.45s forwards, intro-expand 0.95s var(--ease-in-out) 1.7s forwards;
+}
+.intro__window img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.45);
+  transform-origin: 63% 30%;
+  animation: intro-push 2.2s cubic-bezier(0.5, 0, 0.2, 1) 0.45s forwards;
+}
+.intro__name {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: clamp(1.5rem, 3.4vw, 3.25rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.intro__name > span { display: block; animation: intro-name 0.9s var(--ease-out) forwards, intro-fade 0.45s ease 1.65s forwards; }
+.intro__name--first { transform: translate(calc(-100% - min(10vw, 150px) - 1.25rem), calc(-100% - min(7vw, 100px) + 0.1em)); }
+.intro__name--first > span { transform: translateY(105%); animation-delay: 0.75s, 1.65s; }
+.intro__name--last { transform: translate(calc(min(10vw, 150px) + 1.25rem), calc(min(7vw, 100px) - 0.1em)); }
+.intro__name--last > span { transform: translateY(-105%); animation-delay: 0.85s, 1.65s; }
+.intro__meta { position: absolute; opacity: 0; animation: intro-in 0.6s ease 1s forwards, intro-fade 0.4s ease 1.6s forwards; }
+.intro__count::after {
+  counter-reset: n var(--count);
+  content: counter(n, decimal-leading-zero) '%';
+  animation: intro-count 1.5s cubic-bezier(0.6, 0, 0.3, 1) 0.15s forwards;
+}
+@keyframes intro-line { to { transform: scaleX(1); } }
+@keyframes intro-open { to { clip-path: inset(calc(50% - min(7vw, 100px)) calc(50% - min(10vw, 150px))); } }
+@keyframes intro-expand {
+  from { clip-path: inset(calc(50% - min(7vw, 100px)) calc(50% - min(10vw, 150px))); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes intro-push { to { transform: scale(1); } }
+@keyframes intro-name { to { transform: none; } }
+@keyframes intro-in { to { opacity: 1; } }
+@keyframes intro-fade { to { opacity: 0; } }
+@keyframes intro-count { to { --count: 100; } }
+@keyframes intro-out { to { opacity: 0; visibility: hidden; } }
+
+/* hero: runs on CSS at first paint (no waiting for JavaScript) */
+.js .rise-now > .line-mask > span { animation: rise 1.5s var(--ease-out) both; animation-delay: calc(var(--d, 0) * 1ms + 150ms + var(--i, 0) * 110ms); }
+.js .fade-now { animation: fade-up 1.2s var(--ease-out) both; animation-delay: calc(var(--d, 0) * 1ms + 300ms + var(--i, 0) * 110ms); }
+@keyframes rise { from { transform: translate3d(0, 110%, 0); } }
+@keyframes fade-up { from { opacity: 0; transform: translate3d(0, 12px, 0); } }
+.hero-glow {
+  background:
+    radial-gradient(45% 55% at 38% 58%, color-mix(in srgb, var(--color-volt) 16%, transparent), transparent 70%),
+    radial-gradient(40% 50% at 66% 44%, color-mix(in srgb, var(--color-violet) 11%, transparent), transparent 70%);
+}
+/* the still render breathes slowly so phones get motion too */
+.hero-still { animation: breathe 14s ease-in-out infinite alternate; transform-origin: 50% 45%; }
+@keyframes breathe { from { transform: scale(1); } to { transform: scale(1.08) rotate(1.5deg); } }
+.scroll-cue { animation: cue 2.4s var(--ease-in-out) infinite; }
+@keyframes cue { 0%, 100% { transform: translateY(-2px); opacity: 0.4; } 50% { transform: translateY(3px); opacity: 1; } }
+
+/* the hero waits for the intro, then its type rises */
+.hero-type { --d: 0; }
+html.intro-play .hero-type { --d: 2250; }
+
+/* intro already seen in this tab, or reduced motion: never show it */
+html.intro-skip .intro { display: none; }
+
+/* page transitions (View Transitions API, where supported) */
+::view-transition-old(root) { animation: vt-out 0.45s var(--ease-in-out) both; }
+::view-transition-new(root) { animation: vt-in 0.7s var(--ease-out) 0.15s both; }
+@keyframes vt-out { to { opacity: 0; transform: translateY(-24px); filter: blur(6px); } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(32px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; transition-delay: 0ms !important; }
+  .js [data-reveal], .js [data-reveal='clip'], .js [data-reveal='clip'] > *, .js .rise > .line-mask > span { opacity: 1; transform: none; clip-path: none; }
+  .js .scroll-word { opacity: 1 !important; }
+  .hero-still { animation: none; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
+
+/* ------------------------------------------------------------------
+   Article typography (/blog/:slug)
 ------------------------------------------------------------------- */
 .prose-dk {
-  font-size: 1.0625rem;
-  line-height: 1.75;
-  color: color-mix(in oklab, var(--color-ink) 88%, var(--color-dim));
-  max-width: 70ch;
+  font-size: 1.125rem;
+  line-height: 1.72;
+  letter-spacing: -0.006em;
+  color: #c9c9c9;
 }
-.prose-dk > * + * { margin-top: 1.25em; }
+.prose-dk > * + * { margin-top: 1.3em; }
 .prose-dk h2 {
-  font-family: var(--font-display);
-  font-weight: 650;
-  font-size: clamp(1.6rem, 2.6vw, 2rem);
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  color: var(--color-ink);
-  margin-top: 2.4em;
+  font-size: clamp(1.75rem, 3vw, 2.375rem);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  color: var(--color-white);
+  margin-top: 2.6em;
   scroll-margin-top: 6rem;
 }
 .prose-dk h3 {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.3rem;
+  font-size: 1.375rem;
   line-height: 1.25;
-  color: var(--color-ink);
-  margin-top: 1.9em;
+  letter-spacing: -0.02em;
+  color: var(--color-white);
+  margin-top: 2em;
   scroll-margin-top: 6rem;
 }
-.prose-dk h2 + *, .prose-dk h3 + * { margin-top: 0.75em; }
-.prose-dk a { color: var(--color-cyan); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.prose-dk a:hover { color: var(--color-amber); }
-.prose-dk strong { color: var(--color-ink); font-weight: 600; }
-/* lists: only Markdown lists (direct children), not the ones inside diagram components */
+.prose-dk h2 + *, .prose-dk h3 + * { margin-top: 0.8em; }
+.prose-dk a { color: var(--color-white); text-decoration: underline; text-decoration-color: var(--color-mute); text-underline-offset: 4px; text-decoration-thickness: 1px; transition: text-decoration-color 0.3s; }
+.prose-dk a:hover { text-decoration-color: var(--color-white); }
+.prose-dk strong { color: var(--color-white); font-weight: 550; }
 .prose-dk > ul, .prose-dk > ol, .prose-dk li > ul, .prose-dk li > ol { padding-left: 1.3em; }
 .prose-dk > ul, .prose-dk li > ul { list-style: disc; }
 .prose-dk > ol, .prose-dk li > ol { list-style: decimal; }
-.prose-dk > ul li + li, .prose-dk > ol li + li { margin-top: 0.4em; }
-.prose-dk > ul li::marker, .prose-dk > ol li::marker { color: var(--color-amber); }
+.prose-dk > ul li + li, .prose-dk > ol li + li { margin-top: 0.45em; }
+.prose-dk > ul li::marker, .prose-dk > ol li::marker { color: var(--color-mute); }
 .prose-dk blockquote {
-  border-left: 2px solid var(--color-amber);
-  padding: 0.25em 0 0.25em 1.1em;
-  color: var(--color-ink);
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 1.3rem;
-  line-height: 1.5;
+  border-left: 1px solid var(--color-white);
+  padding: 0.1em 0 0.1em 1.4em;
+  color: var(--color-white);
+  font-size: 1.5rem;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
 }
 .prose-dk :not(pre) > code {
   font-family: var(--font-mono);
-  font-size: 0.86em;
-  background: var(--color-hull-2);
-  border: 1px solid var(--color-wire);
-  border-radius: 6px;
-  padding: 0.1em 0.38em;
-  color: var(--color-ink);
+  font-size: 0.84em;
+  background: var(--color-coal-2);
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  padding: 0.12em 0.36em;
+  color: var(--color-white);
   overflow-wrap: anywhere;
 }
-.prose-dk hr { border: 0; border-top: 1px solid var(--color-wire); margin: 2.5em 0; }
+.prose-dk hr { border: 0; border-top: 1px solid var(--color-line); margin: 3em 0; }
 .prose-dk table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
-.prose-dk .table-wrap { overflow-x: auto; border: 1px solid var(--color-wire); border-radius: 12px; }
-.prose-dk th, .prose-dk td { text-align: left; padding: 0.65em 0.9em; border-bottom: 1px solid var(--color-wire); vertical-align: top; }
-.prose-dk th { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-dim); background: var(--color-hull); }
+.prose-dk .table-wrap { overflow-x: auto; border: 1px solid var(--color-line); }
+.prose-dk th, .prose-dk td { text-align: left; padding: 0.75em 1em; border-bottom: 1px solid var(--color-line); vertical-align: top; }
+.prose-dk th { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-grey); background: var(--color-coal); }
 .prose-dk tr:last-child td { border-bottom: 0; }
-/* Shiki output */
+.prose-dk img { width: 100%; border: 1px solid var(--color-line); }
 .prose-dk pre.shiki {
   font-family: var(--font-mono);
-  font-size: 0.85rem;
-  line-height: 1.7;
-  padding: 1.1rem 1.25rem;
+  font-size: 0.84rem;
+  line-height: 1.75;
+  padding: 1.25rem 1.4rem;
   overflow-x: auto;
-  background: #05070d !important;
-  border-radius: 0 0 12px 12px;
+  background: #080808 !important;
   tab-size: 2;
 }
 .prose-dk pre.shiki code { display: grid; }
 
-/* ------------------------------------------------------------------
-   Request-flow packets (Projects). Packets move along the track while
-   the diagram is visible (.is-running) and faster on hover.
-------------------------------------------------------------------- */
-.flow-packet {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 8px;
-  height: 8px;
-  margin: -4px 0 0 -4px;
-  border-radius: 999px;
-  background: var(--flow-color);
-  box-shadow: 0 0 10px var(--flow-color), 0 0 24px var(--flow-color);
-  opacity: 0;
-  animation: flow-y 3.6s linear infinite;
-  animation-play-state: paused;
+/* reading progress on articles: driven by the scroll position, no JavaScript */
+.read-progress { display: none; }
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .read-progress { display: block; transform: scaleX(0); animation: read-progress linear both; animation-timeline: scroll(root); }
+  }
 }
-@media (min-width: 768px) {
-  .flow-packet { left: 0; top: 50%; animation-name: flow-x; }
-}
-.flow.is-running .flow-packet { animation-play-state: running; }
-.flow:hover .flow-packet { animation-duration: 1.8s; }
-@keyframes flow-x {
-  0% { left: 0%; opacity: 0; }
-  8%, 92% { opacity: 1; }
-  100% { left: 100%; opacity: 0; }
-}
-@keyframes flow-y {
-  0% { top: 0%; opacity: 0; }
-  8%, 92% { opacity: 1; }
-  100% { top: 100%; opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .flow-packet { animation: none; opacity: 1; left: 50%; top: 50%; }
-}
+@keyframes read-progress { to { transform: scaleX(1); } }

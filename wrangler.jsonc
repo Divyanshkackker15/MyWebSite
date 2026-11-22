@@ -1,12 +1,26 @@
-// Optional: only needed if you deploy with Cloudflare *Workers* (static assets)
-// instead of Cloudflare *Pages*. See DEPLOYMENT.md → "Option B".
+// Cloudflare Workers config: the static site in ./dist plus a small Worker
+// for the contact form (worker/index.ts). Only /api/* reaches the Worker;
+// every other request is served straight from the static files.
+//
+// Secrets are NOT stored here. Add them in the Cloudflare dashboard:
+//   Workers & Pages → mywebsite → Settings → Variables and Secrets
+//   RESEND_API_KEY  (type: Secret)
 {
-  "name": "kackker-portfolio",
+  "name": "mywebsite",
+  "main": "worker/index.ts",
   "compatibility_date": "2025-10-01",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     // /blog/foo → dist/blog/foo.html, unknown URLs → dist/404.html
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "404-page"
-  }
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "CONTACT_TO": "kackkerdivyansh1115@gmail.com",
+    // until kackkerdivyansh.in is verified in Resend, mail comes from Resend's test address
+    "CONTACT_FROM": "Portfolio <onboarding@resend.dev>"
+  },
+  "observability": { "enabled": true }
 }

@@ -6,4 +6,4 @@ dist-ssr
 *.log
 .DS_Store
 .wrangler
-dist-preview
+.dev.vars

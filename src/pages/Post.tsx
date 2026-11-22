@@ -1,118 +1,142 @@
-import { Suspense, useRef } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Suspense, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { MDXProvider } from '@mdx-js/react'
-import { m, useScroll } from 'framer-motion'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { Page } from '../components/layout/Page'
-import { PostCover } from '../components/blog/PostCover'
+import { TLink } from '../components/layout/TLink'
+import { PostPanel } from '../components/blog/PostPanel'
 import { Toc } from '../components/blog/Toc'
-import { AuthorBox } from '../components/blog/AuthorBox'
-import { ShareBar } from '../components/blog/ShareBar'
 import { mdxComponents } from '../components/blog/mdxComponents'
-import { formatDate, getNeighbours, getPost, postBody } from '../lib/posts'
+import { Img } from '../components/ui/Img'
+import { coverFor, formatDate, getNeighbours, getPost, postBody, relatedPosts } from '../lib/posts'
 import { profile } from '../data/profile'
 import NotFound from './NotFound'
-import { asset } from '../lib/asset'
 
-/** /blog/:slug — one article. */
+/** /blog/:slug: one article, set like a printed essay. */
 export default function Post() {
   const { slug = '' } = useParams()
   const meta = getPost(slug)
   const body = postBody(slug)
-  const article = useRef<HTMLElement>(null)
-  const { scrollYProgress } = useScroll({ target: article, offset: ['start 80px', 'end end'] })
+  const [copied, setCopied] = useState(false)
 
   if (!meta || !body) return <NotFound />
   const Body = body.Component
   const { previous, next } = getNeighbours(slug)
+  const related = relatedPosts(meta)
+  const cover = coverFor(meta)
   const url = `${profile.site}/blog/${meta.slug}`
 
-  return (
-    <Page>
-      {/* reading progress */}
-      <m.div aria-hidden="true" className="fixed inset-x-0 top-0 z-[70] h-[3px] origin-left bg-amber" style={{ scaleX: scrollYProgress }} />
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      /* clipboard blocked */
+    }
+  }
 
-      <article ref={article} className="pb-24 pt-28 md:pt-36">
-        <header className="container-x">
-          <nav aria-label="Breadcrumb" className="label flex flex-wrap items-center gap-2">
-            <Link to="/blog" className="hover:text-ink">Blog</Link>
+  return (
+    <>
+      <div aria-hidden="true" className="read-progress fixed inset-x-0 top-0 z-[60] h-px origin-left bg-white" />
+
+      <article className="pb-24">
+        <header className="wrap pt-36 md:pt-44">
+          <nav aria-label="Breadcrumb" className="mono fade-now flex flex-wrap gap-2 text-grey">
+            <TLink to="/blog" className="link hover:text-white">Writing</TLink>
             <span aria-hidden="true">/</span>
-            <Link to={`/blog?category=${encodeURIComponent(meta.category)}`} className="text-cyan hover:text-amber">
-              {meta.category}
-            </Link>
+            <a href={`/blog?category=${encodeURIComponent(meta.category)}`} className="link text-white">{meta.category}</a>
           </nav>
-          <h1 className="mt-6 max-w-[22ch] font-display text-[clamp(2.4rem,6vw,5rem)] font-bold leading-[1] tracking-[-0.045em] text-ink">
-            {meta.title}
+          <h1 className="rise-now mt-8 max-w-[20ch] text-[clamp(2.5rem,6.6vw,6.25rem)] leading-[0.96] tracking-[-0.05em]">
+            <span className="line-mask"><span className="ink-fade">{meta.title}</span></span>
           </h1>
-          <p className="mt-6 max-w-[60ch] text-xl leading-relaxed text-dim">{meta.excerpt}</p>
-          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
-            <span className="flex items-center gap-3">
-              <picture>
-                <source type="image/webp" srcSet={asset('images/avatar-256.webp')} />
-                <img src={asset('images/avatar-256.png')} alt="" width={40} height={40} className="h-10 w-10 rounded-full" />
-              </picture>
-              <span className="text-sm">
-                <span className="block text-ink">{profile.name}</span>
-                <span className="text-dim">{profile.title}</span>
-              </span>
-            </span>
-            <span className="label">
-              <time dateTime={meta.date}>{formatDate(meta.date)}</time> · {meta.readingTime} min read
-            </span>
-          </div>
-          <ul className="mt-6 flex flex-wrap gap-2" aria-label="Tags">
-            {meta.tags.map((t) => (
-              <li key={t}>
-                <Link to={`/blog?tag=${encodeURIComponent(t)}`} className="rounded-full border border-wire px-3 py-1 font-mono text-xs text-dim hover:border-cyan hover:text-cyan">
-                  #{t}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-10 overflow-hidden rounded-[28px] border border-wire">
-            <PostCover motif={meta.cover} label={meta.category} className="aspect-[16/7] w-full" />
+          <div className="mt-10 grid gap-8 md:grid-cols-12">
+            <p className="fade-now text-xl leading-relaxed text-grey md:col-span-7" style={{ '--i': 2 } as React.CSSProperties}>{meta.excerpt}</p>
+            <dl className="mono fade-now grid grid-cols-3 gap-4 text-grey md:col-span-4 md:col-start-9 md:grid-cols-1 md:gap-3" style={{ '--i': 3 } as React.CSSProperties}>
+              <div><dt className="text-mute">Published</dt><dd className="mt-1 text-white"><time dateTime={meta.date}>{formatDate(meta.date)}</time></dd></div>
+              <div><dt className="text-mute">Reading time</dt><dd className="mt-1 text-white">{meta.readingTime} min</dd></div>
+              <div><dt className="text-mute">By</dt><dd className="mt-1 text-white">{profile.name}</dd></div>
+            </dl>
           </div>
         </header>
 
-        <div className="container-x mt-12 grid gap-10 lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-16">
-          <div className="min-w-0">
+        <figure className="wrap mt-14 md:mt-20">
+          <div className="overflow-hidden border border-line" data-reveal="clip">
+            {cover.custom ? (
+              <img src={cover.src} alt="" className="aspect-[16/8] w-full object-cover" />
+            ) : (
+              <Img src={cover.src} alt="" eager sizes="100vw" className="aspect-[16/8] w-full object-cover" />
+            )}
+          </div>
+        </figure>
+
+        <div className="wrap mt-16 grid gap-12 lg:mt-24 lg:grid-cols-12 lg:gap-8">
+          <aside className="hidden lg:col-span-3 lg:block">
+            <div className="sticky top-28">
+              <Toc headings={meta.headings} />
+            </div>
+          </aside>
+          <div className="min-w-0 lg:col-span-7 lg:col-start-5">
             <Toc headings={meta.headings} variant="inline" />
-            <div className="prose-dk mt-8 lg:mt-0">
+            <div className="prose-dk mt-10 max-w-[680px] lg:mt-0">
               <MDXProvider components={mdxComponents}>
-                <Suspense fallback={<p className="text-dim">Loading article…</p>}>
+                <Suspense fallback={<p className="text-grey">Loading the article…</p>}>
                   <Body />
                 </Suspense>
               </MDXProvider>
             </div>
 
-            <div className="mt-16 grid max-w-[70ch] gap-8 border-t border-wire pt-10">
-              <ShareBar url={url} title={meta.title} />
-              <AuthorBox />
-            </div>
-
-            <nav aria-label="More posts" className="mt-12 grid max-w-[70ch] gap-4 sm:grid-cols-2">
-              {previous ? (
-                <Link to={`/blog/${previous.slug}`} className="group rounded-2xl border border-wire bg-hull p-5 transition-colors hover:border-cyan/50">
-                  <span className="label flex items-center gap-2"><ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Previous</span>
-                  <span className="mt-2 block font-display text-lg font-semibold leading-snug text-ink group-hover:text-cyan">{previous.title}</span>
-                </Link>
-              ) : <span />}
-              {next && (
-                <Link to={`/blog/${next.slug}`} className="group rounded-2xl border border-wire bg-hull p-5 text-right transition-colors hover:border-cyan/50">
-                  <span className="label flex items-center justify-end gap-2">Next <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></span>
-                  <span className="mt-2 block font-display text-lg font-semibold leading-snug text-ink group-hover:text-cyan">{next.title}</span>
-                </Link>
-              )}
-            </nav>
+            <footer className="mt-20 grid max-w-[680px] gap-8 border-t border-line pt-8">
+              <ul className="mono flex flex-wrap gap-x-4 gap-y-2 text-grey" aria-label="Tags">
+                {meta.tags.map((t) => <li key={t}>#{t}</li>)}
+              </ul>
+              <div className="mono flex flex-wrap gap-6">
+                <a
+                  href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="link text-white"
+                >
+                  Share on LinkedIn ↗
+                </a>
+                <button type="button" onClick={copy} className="link text-white">
+                  <span aria-live="polite">{copied ? 'Link copied' : 'Copy link'}</span>
+                </button>
+              </div>
+              <p className="text-grey">
+                Written by <span className="text-white">{profile.name}</span>, a Java backend developer in {profile.location.split(',')[0]}.{' '}
+                <TLink to="/#contact" className="link text-white">Say hello →</TLink>
+              </p>
+            </footer>
           </div>
-
-          <aside className="hidden lg:block">
-            <div className="sticky top-28">
-              <Toc headings={meta.headings} />
-            </div>
-          </aside>
         </div>
       </article>
-    </Page>
+
+      {related.length > 0 && (
+        <section aria-labelledby="related-title" className="wrap border-t border-line py-20 md:py-28">
+          <h2 id="related-title" className="title">Keep reading</h2>
+          <div className="mt-12 grid gap-x-8 gap-y-14 md:grid-cols-3">
+            {related.map((p, i) => (
+              <div key={p.slug} data-reveal style={{ '--d': i * 100 } as React.CSSProperties}>
+                <PostPanel post={p} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <nav aria-label="Previous and next article" className="wrap grid border-t border-line md:grid-cols-2">
+        {previous ? (
+          <TLink to={`/blog/${previous.slug}`} className="group grid gap-3 py-12 md:pr-8">
+            <span className="mono text-grey">← Older</span>
+            <span className="title text-white transition-transform duration-500 group-hover:-translate-x-1">{previous.title}</span>
+          </TLink>
+        ) : <span />}
+        {next && (
+          <TLink to={`/blog/${next.slug}`} className="group grid gap-3 border-t border-line py-12 text-right md:border-l md:border-t-0 md:pl-8">
+            <span className="mono text-grey">Newer →</span>
+            <span className="title text-white transition-transform duration-500 group-hover:translate-x-1">{next.title}</span>
+          </TLink>
+        )}
+      </nav>
+    </>
   )
 }

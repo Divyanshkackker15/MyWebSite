@@ -30,7 +30,7 @@ export interface PostMeta {
   category: string
   tags: string[]
   featured: boolean
-  /** cover artwork motif, see src/components/blog/PostCover.tsx */
+  /** optional cover image path; empty = a studio render picked by category */
   cover: string
   order: number
   readingTime: number
@@ -87,7 +87,7 @@ export function readPosts(): PostMeta[] {
       category: String(data.category),
       tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
       featured: Boolean(data.featured),
-      cover: String(data.cover ?? 'mesh'),
+      cover: data.cover ? String(data.cover) : '',
       order: Number(data.order ?? 99),
       readingTime: Math.max(1, Math.round(words / WORDS_PER_MINUTE)),
       headings,

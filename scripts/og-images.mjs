@@ -2,9 +2,9 @@
  * Generates Open Graph images (1200 × 630 PNG): the preview card LinkedIn,
  * WhatsApp, X etc. show when someone shares a link.
  *
- *   dist/og/default.png   home page (photo + name)
+ *   dist/og/default.png   home page
  *   dist/og/blog.png      blog index
- *   dist/og/<slug>.png    one per post (title + category + avatar)
+ *   dist/og/<slug>.png    one per post (title + category)
  *
  * How: satori turns a small HTML-like tree into SVG, resvg turns the SVG
  * into PNG. Runs at build time only; nothing ships to the browser.
@@ -21,16 +21,10 @@ await fs.mkdir(out, { recursive: true })
 
 const font = (pkg, file) => fs.readFile(path.join(root, 'node_modules', pkg, 'files', file))
 const fonts = [
-  { name: 'Bricolage', weight: 700, style: 'normal', data: await font('@fontsource/bricolage-grotesque', 'bricolage-grotesque-latin-700-normal.woff') },
-  { name: 'Bricolage', weight: 800, style: 'normal', data: await font('@fontsource/bricolage-grotesque', 'bricolage-grotesque-latin-800-normal.woff') },
-  { name: 'Geist', weight: 400, style: 'normal', data: await font('@fontsource/geist', 'geist-latin-400-normal.woff') },
-  { name: 'Geist', weight: 500, style: 'normal', data: await font('@fontsource/geist', 'geist-latin-500-normal.woff') },
-  { name: 'Serif', weight: 400, style: 'italic', data: await font('@fontsource/instrument-serif', 'instrument-serif-latin-400-italic.woff') },
+  { name: 'Inter', weight: 400, style: 'normal', data: await font('@fontsource/inter', 'inter-latin-400-normal.woff') },
+  { name: 'Inter', weight: 500, style: 'normal', data: await font('@fontsource/inter', 'inter-latin-500-normal.woff') },
+  { name: 'Mono', weight: 400, style: 'normal', data: await font('@fontsource/geist-mono', 'geist-mono-latin-400-normal.woff') },
 ]
-
-const dataUri = async (file) => `data:image/png;base64,${(await fs.readFile(path.join(root, 'public', file))).toString('base64')}`
-const portrait = await dataUri('images/portrait-desktop.png')
-const avatar = await dataUri('images/avatar-256.png')
 
 // tiny element helper: h('div', { style }, ...children)
 // (satori needs every <div> to be display:flex, so it is added by default)
@@ -40,79 +34,53 @@ const h = (type, props = {}, ...children) => {
   return { type, props: { ...props, style, children: kids.length === 1 ? kids[0] : kids } }
 }
 
-const C = { void: '#070A12', hull: '#0E1320', wire: '#1F2840', ink: '#E9EDF5', dim: '#8C95AB', amber: '#FFB547', cyan: '#4FD1FF' }
+const LIGHT = { volt: '#3d7bff', violet: '#8b5cf6', magenta: '#e0409a', emerald: '#1fbf8a' }
+const CATEGORY_LIGHT = {
+  Java: 'volt', 'Spring Boot': 'emerald', 'Backend Engineering': 'volt', 'System Design': 'violet',
+  Databases: 'emerald', Development: 'violet', 'Personal Learnings': 'magenta', Experiments: 'magenta',
+}
 
-const frame = (...children) =>
+const frame = (light, ...children) =>
   h(
     'div',
     {
       style: {
-        width: 1200, height: 630, display: 'flex', position: 'relative', overflow: 'hidden',
-        backgroundColor: C.void,
-        backgroundImage: 'radial-gradient(circle at 78% 20%, rgba(255,181,71,0.22), transparent 45%), radial-gradient(circle at 8% 100%, rgba(79,209,255,0.14), transparent 40%)',
-        fontFamily: 'Geist', color: C.ink,
+        width: 1200, height: 630, position: 'relative', overflow: 'hidden', flexDirection: 'column',
+        justifyContent: 'space-between', padding: '64px 72px',
+        backgroundColor: '#000000',
+        backgroundImage: `radial-gradient(circle at 88% 12%, ${light}38, transparent 42%)`,
+        fontFamily: 'Inter', color: '#F5F5F5',
       },
     },
-    // hairline border
-    h('div', { style: { position: 'absolute', top: 24, left: 24, right: 24, bottom: 24, border: `1px solid ${C.wire}`, borderRadius: 28, display: 'flex' } }),
     ...children,
   )
 
-const label = (text, color = C.dim) =>
-  h('div', { style: { fontSize: 22, letterSpacing: 3, textTransform: 'uppercase', color, display: 'flex' } }, text)
+const mono = (text, color = '#8A8A8A') =>
+  h('div', { style: { fontFamily: 'Mono', fontSize: 20, letterSpacing: 2, textTransform: 'uppercase', color } }, text)
+
+const foot = (left) =>
+  h('div', { style: { justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #2A2A2A', paddingTop: 24 } }, mono(left), mono('kackkerdivyansh.in'))
 
 function homeCard() {
   return frame(
-    h('img', { src: portrait, width: 520, height: 632, style: { position: 'absolute', right: 40, bottom: -2, objectFit: 'contain' } }),
-    h(
-      'div',
-      { style: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '70px 80px', width: 760 } },
-      label('kackkerdivyansh.in', C.cyan),
-      h(
-        'div',
-        { style: { display: 'flex', flexDirection: 'column' } },
-        h('div', { style: { fontFamily: 'Bricolage', fontWeight: 800, fontSize: 118, letterSpacing: -5, lineHeight: 0.95 } }, 'Divyansh'),
-        h('div', { style: { fontFamily: 'Serif', fontStyle: 'italic', fontSize: 124, color: C.amber, lineHeight: 0.95, marginTop: 4 } }, 'Kackker'),
-        h('div', { style: { fontSize: 34, marginTop: 28, color: C.ink, display: 'flex' } }, 'Java Backend Developer'),
-        h('div', { style: { fontSize: 26, marginTop: 8, color: C.dim, display: 'flex' } }, 'Spring Boot · Microservices · Kafka · REST APIs'),
-      ),
-      h(
-        'div',
-        { style: { display: 'flex', alignItems: 'center', gap: 14 } },
-        h('div', { style: { width: 14, height: 14, borderRadius: 7, background: '#5BE49B' } }),
-        h('div', { style: { fontSize: 24, color: C.ink } }, 'Available for work & freelance'),
-      ),
+    LIGHT.volt,
+    mono('Divyansh Kackker'),
+    h('div', { style: { flexDirection: 'column', fontSize: 104, fontWeight: 500, letterSpacing: -5, lineHeight: 0.96 } },
+      h('div', {}, 'I build the parts'),
+      h('div', { style: { color: '#8A8A8A' } }, 'of software nobody sees.'),
     ),
+    foot('Java backend developer · Writing'),
   )
 }
 
-function postCard({ title, category, eyebrow = 'Blog' }) {
-  const size = title.length > 70 ? 58 : title.length > 48 ? 66 : 76
+function postCard({ title, category }) {
+  const size = title.length > 70 ? 62 : title.length > 48 ? 72 : 84
+  const light = LIGHT[CATEGORY_LIGHT[category] ?? 'volt']
   return frame(
-    h(
-      'div',
-      { style: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '70px 80px', width: '100%' } },
-      h(
-        'div',
-        { style: { display: 'flex', alignItems: 'center', gap: 18 } },
-        label(`kackkerdivyansh.in · ${eyebrow}`, C.cyan),
-        category
-          ? h('div', { style: { display: 'flex', fontSize: 20, letterSpacing: 2, textTransform: 'uppercase', color: C.void, background: C.amber, padding: '6px 14px', borderRadius: 8 } }, category)
-          : null,
-      ),
-      h('div', { style: { display: 'flex', fontFamily: 'Bricolage', fontWeight: 700, fontSize: size, lineHeight: 1.05, letterSpacing: -2, maxWidth: 1000 } }, title),
-      h(
-        'div',
-        { style: { display: 'flex', alignItems: 'center', gap: 20 } },
-        h('img', { src: avatar, width: 76, height: 76, style: { borderRadius: 38 } }),
-        h(
-          'div',
-          { style: { display: 'flex', flexDirection: 'column' } },
-          h('div', { style: { fontSize: 28, fontWeight: 500 } }, 'Divyansh Kackker'),
-          h('div', { style: { fontSize: 22, color: C.dim } }, 'Java Backend Developer'),
-        ),
-      ),
-    ),
+    light,
+    h('div', { style: { gap: 18, alignItems: 'center' } }, mono('Writing'), mono('/'), mono(category ?? 'Notes', '#F5F5F5')),
+    h('div', { style: { fontSize: size, fontWeight: 500, lineHeight: 1.02, letterSpacing: -2.6, maxWidth: 1040 } }, title),
+    foot('Divyansh Kackker'),
   )
 }
 
@@ -124,5 +92,5 @@ async function write(name, tree) {
 }
 
 await write('default', homeCard())
-await write('blog', postCard({ title: 'Notes from the backend: Java, Spring Boot, microservices and system design', eyebrow: 'Blog' }))
+await write('blog', postCard({ title: 'Writing. Notes on Java, Spring Boot, databases and system design.', category: 'Notes from the backend' }))
 for (const post of readPosts()) await write(post.slug, postCard(post))
