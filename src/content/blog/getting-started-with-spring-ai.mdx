@@ -1,0 +1,197 @@
+---
+title: "Getting Started with Spring AI: Adding AI to a Spring Boot App"
+excerpt: "Spring AI brings LLMs into Spring Boot the Spring way: a ChatClient you inject, typed responses, tool calling and RAG, with providers you can swap in config."
+date: 2026-11-22
+category: AI
+tags: [spring-ai, llm, spring-boot, rag, ai]
+cover: neural
+order: 8
+---
+
+AI features are turning up in ordinary backend work: summarising tickets, answering questions over documentation, pulling structured data out of text. As a Java developer I wanted to build these *in Spring Boot*, with the same dependency injection, configuration and testing I already use. That is exactly what **Spring AI** is for.
+
+This post builds a small "ask a question" API step by step. It's also the base for an "Ask about me" chatbot I plan to add to this site.
+
+<Callout type="note">
+  Examples follow the Spring AI 1.x API. Artifact names changed between the milestone releases and 1.0, so if a tutorial uses `spring-ai-openai-spring-boot-starter`, it was written for a pre-1.0 milestone. Check the reference docs for the current version number.
+</Callout>
+
+## What Spring AI gives you
+
+- **`ChatClient`**: a fluent API to send prompts and read answers, similar in spirit to `RestClient`.
+- **Portable models**: OpenAI, Anthropic, Ollama, Azure, Bedrock and more behind the same interfaces. Switching provider is mostly a dependency and config change.
+- **Structured output**: map the model's answer straight to a Java record.
+- **Tool calling**: let the model call your Java methods.
+- **Embeddings, vector stores and advisors**: the building blocks for RAG (retrieval-augmented generation).
+
+## Step 1: dependencies
+
+Use the BOM so all Spring AI modules share one version, then add one model starter. I'm using **Ollama**, which runs open models locally for free, which is great for learning:
+
+```xml
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-bom</artifactId>
+            <version>${spring-ai.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-starter-model-ollama</artifactId>
+    </dependency>
+</dependencies>
+```
+
+```bash
+# install Ollama from ollama.com, then download a small model
+ollama pull llama3.2
+```
+
+```yaml
+spring:
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: llama3.2
+          temperature: 0.3   # lower = more focused, less creative
+```
+
+To use a hosted provider instead, swap the starter (for example `spring-ai-starter-model-openai` or `spring-ai-starter-model-anthropic`) and set its API key from an **environment variable**, never in the repository.
+
+## Step 2: your first AI endpoint
+
+Spring Boot auto-configures a `ChatClient.Builder`. Build a client once with a **system prompt** that sets the rules, then reuse it:
+
+```java
+@RestController
+@RequestMapping("/api/ask")
+class AskController {
+
+    private final ChatClient chat;
+
+    AskController(ChatClient.Builder builder) {
+        this.chat = builder
+                .defaultSystem("""
+                    You answer questions about Java and Spring Boot for students.
+                    Be concise. If you are not sure, say so instead of guessing.
+                    """)
+                .build();
+    }
+
+    @GetMapping
+    String ask(@RequestParam String q) {
+        return chat.prompt()
+                .user(q)
+                .call()
+                .content();   // the model's answer as a String
+    }
+}
+```
+
+```bash
+curl "http://localhost:8080/api/ask?q=What+does+@Transactional+do"
+```
+
+That's a working AI feature in about twenty lines.
+
+## Step 3: structured output into a record
+
+Free text is hard for code to use. Ask for a type instead:
+
+```java
+record ReviewSummary(String sentiment, List<String> keyPoints, int rating) {}
+
+ReviewSummary summary = chat.prompt()
+        .user(u -> u.text("Summarise this customer review: {review}").param("review", reviewText))
+        .call()
+        .entity(ReviewSummary.class);   // Spring AI adds format instructions and parses the JSON
+```
+
+Two good habits here: user content goes in through a **template parameter** rather than string concatenation, and the result is a typed object you can **validate** like any other input.
+
+## Step 4: streaming the answer
+
+Long answers feel faster when they appear word by word. `stream()` returns a Reactor `Flux`, which Spring MVC can send as Server-Sent Events:
+
+```java
+@GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+Flux<String> stream(@RequestParam String q) {
+    return chat.prompt().user(q).stream().content();
+}
+```
+
+## Step 5: tool calling, letting the model use your code
+
+The model doesn't know your data. With tool calling, you describe Java methods, the model decides when it needs one, Spring AI runs it, and the result goes back to the model:
+
+```java
+class PortfolioTools {
+
+    @Tool(description = "List the projects in this portfolio with their tech stack")
+    List<String> listProjects() {
+        return List.of(
+                "GoCruze: Spring Boot, Spring Security, MySQL",
+                "Votezy: Spring Boot, Spring Data JPA, MySQL");
+    }
+}
+
+String answer = chat.prompt()
+        .user("Which projects use Spring Security?")
+        .tools(new PortfolioTools())
+        .call()
+        .content();
+```
+
+<Callout type="warn">
+  A tool is an API the model can call with arguments *it* chose. Treat those arguments like untrusted user input: validate them, check permissions, and never expose tools that change or delete data without a confirmation step.
+</Callout>
+
+## Step 6: RAG, answering from your own documents
+
+Models know a lot, but not *your* documents, and they can confidently invent things. **Retrieval-augmented generation** fixes both:
+
+<Flow
+  steps={['Split docs into chunks', 'Embed → vector store', 'Question → find similar chunks', 'Prompt = question + chunks', 'Grounded answer']}
+  highlight={2}
+/>
+
+With a `VectorStore` configured (PGVector, Redis, Chroma and others are supported), the `QuestionAnswerAdvisor` (in the `spring-ai-advisors-vector-store` module) does the retrieval step for you:
+
+```java
+String answer = chat.prompt()
+        .advisors(QuestionAnswerAdvisor.builder(vectorStore).build())
+        .user(question)
+        .call()
+        .content();
+```
+
+For the "Ask about me" bot, the documents would be my résumé, project write-ups and these blog posts, so answers come from real content and not from the model's imagination.
+
+## Things to get right before production
+
+| Concern | What to do |
+| --- | --- |
+| **Secrets** | API keys from env vars or a secrets manager |
+| **Cost and latency** | Timeouts, max tokens, caching of repeated questions |
+| **Prompt injection** | Users (and documents) can include instructions; keep system rules separate and limit what tools can do |
+| **Wrong answers** | Ground with RAG, ask the model to say "I don't know", show sources |
+| **Privacy** | Don't send personal or confidential data to a third-party model without consent |
+| **Testing** | Mock `ChatModel` in unit tests; keep a small set of real-model checks for important prompts |
+
+## What I took away
+
+- Spring AI makes LLMs feel like any other **Spring dependency**: inject, configure, test.
+- Start with **`ChatClient` + a clear system prompt**, then add **structured output**.
+- **Tools** connect the model to your code. Guard them like public endpoints.
+- **RAG** is how you get answers about *your* data that you can trust.
+
+AI is the newest item in my toolkit and the one I'm most excited to keep exploring, alongside the system design work from the previous post.

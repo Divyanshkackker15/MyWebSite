@@ -1,0 +1,259 @@
+---
+title: "Docker and Kubernetes for Java Developers: From JAR to Pods"
+excerpt: "Package a Spring Boot app into a small, secure image, run it with MySQL in Docker Compose, then deploy it to Kubernetes with health probes, config and secrets."
+date: 2026-11-22
+category: DevOps
+tags: [docker, kubernetes, spring-boot, devops, containers]
+cover: containers
+order: 6
+---
+
+"It works on my machine" stops being funny the first time a teammate spends an afternoon installing the right JDK and MySQL version just to run your code. Containers fix that. This post follows one Spring Boot service from a JAR file to a running Kubernetes deployment, with the reasons behind each step.
+
+<Flow steps={['./mvnw package → app.jar', 'docker build → image', 'docker compose → app + MySQL', 'kubectl apply → Pods']} />
+
+## Containers in one paragraph
+
+A **container image** bundles your app with everything it needs to run: the JRE, OS libraries and config defaults. A **container** is a running instance of that image, isolated from other processes but sharing the host's kernel, so it starts in seconds rather than minutes like a VM. Build once, run the *same* image on your laptop, in CI and in production.
+
+## Step 1: a good Dockerfile
+
+```dockerfile
+# ---------- build stage: has the full JDK and Maven ----------
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /workspace
+
+# copy the build files first so dependency downloads are cached between builds
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+RUN ./mvnw -q dependency:go-offline
+
+COPY src src
+RUN ./mvnw -q package -DskipTests
+
+# ---------- run stage: only the JRE ----------
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+
+# never run as root inside the container
+RUN useradd --system --uid 1001 spring
+USER spring
+
+COPY --from=build /workspace/target/*.jar app.jar
+EXPOSE 8080
+
+# respect the container's memory limit instead of the host's
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]
+```
+
+What each choice buys you:
+
+| Choice | Why |
+| --- | --- |
+| **Multi-stage build** | The final image has no JDK, Maven or source code: smaller and safer |
+| **Copy `pom.xml` before `src`** | Docker caches layers, so changing code doesn't re-download every dependency |
+| **JRE base image** | A runtime doesn't need a compiler |
+| **Non-root user** | If the app is compromised, the attacker isn't root in the container |
+| **`MaxRAMPercentage`** | The JVM sizes its heap from the container's memory limit |
+
+Also add a `.dockerignore` so `target/`, `.git` and IDE folders aren't sent to the build:
+
+```text
+target
+.git
+.idea
+*.iml
+```
+
+Build and run it:
+
+```bash
+docker build -t demo-api:1.0 .
+docker run --rm -p 8080:8080 demo-api:1.0
+```
+
+<Callout type="tip">
+  Spring Boot can also build an optimised image without a Dockerfile, using Cloud Native Buildpacks: `./mvnw spring-boot:build-image`. It's a great default. Writing the Dockerfile yourself once helps you understand what it does.
+</Callout>
+
+## Step 2: app + database with Docker Compose
+
+A backend is rarely alone. Compose starts the whole stack with one command:
+
+```yaml
+# docker-compose.yml
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: demo
+      MYSQL_USER: demo
+      MYSQL_PASSWORD: demo-dev-only
+      MYSQL_ROOT_PASSWORD: root-dev-only
+    ports:
+      - "3306:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # Spring Boot maps SPRING_DATASOURCE_URL → spring.datasource.url
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/demo
+      SPRING_DATASOURCE_USERNAME: demo
+      SPRING_DATASOURCE_PASSWORD: demo-dev-only
+    depends_on:
+      db:
+        condition: service_healthy   # wait until MySQL actually accepts connections
+
+volumes:
+  db-data:
+```
+
+```bash
+docker compose up --build
+```
+
+Two things worth noticing:
+
+- Inside the Compose network, the app reaches MySQL by its **service name** (`db`), not `localhost`.
+- Spring Boot's **relaxed binding** turns environment variables into properties, so the same image works in every environment and only the config changes.
+
+## Step 3: Kubernetes, and why you'd need it
+
+Compose runs containers on *one* machine. Kubernetes runs them across a **cluster** and keeps them in the state you describe:
+
+- "Always keep 3 copies running." If one crashes, it's replaced.
+- "Roll out version 1.1 without downtime." Pods are replaced gradually.
+- "Only send traffic to copies that are ready."
+
+### The objects you'll use first
+
+| Object | What it is |
+| --- | --- |
+| **Pod** | One or more containers that run together; the smallest unit |
+| **Deployment** | Declares *how many* Pods of *which image*, and handles rolling updates |
+| **Service** | A stable name and IP that load-balances across the Pods |
+| **ConfigMap / Secret** | Configuration and sensitive values, injected as env vars or files |
+
+## Step 4: make the app Kubernetes-friendly
+
+Add Actuator, which gives Kubernetes the health endpoints it needs:
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+```
+
+```yaml
+# application.yml
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true   # /actuator/health/liveness and /actuator/health/readiness
+server:
+  shutdown: graceful    # finish in-flight requests on shutdown (the default from Spring Boot 3.4)
+```
+
+- **Liveness**: "is the process healthy?" If it fails, Kubernetes restarts the container.
+- **Readiness**: "can it take traffic right now?" If it fails, the Pod is removed from the Service until it recovers, for example while it's still starting up.
+
+## Step 5: the manifests
+
+```yaml
+# k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: demo-api
+  template:
+    metadata:
+      labels:
+        app: demo-api
+    spec:
+      containers:
+        - name: api
+          image: demo-api:1.0
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef: { name: demo-config, key: db-url }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: demo-secrets, key: db-password }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }   # what the scheduler reserves
+            limits: { memory: 768Mi }                # hard ceiling: the JVM heap fits inside via MaxRAMPercentage
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8080 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-api
+spec:
+  selector:
+    app: demo-api        # send traffic to Pods with this label
+  ports:
+    - port: 80
+      targetPort: 8080
+```
+
+```bash
+kubectl create configmap demo-config --from-literal=db-url=jdbc:mysql://mysql:3306/demo
+kubectl create secret generic demo-secrets --from-literal=db-password='change-me'
+kubectl apply -f k8s/
+kubectl get pods -l app=demo-api
+kubectl logs -f deploy/demo-api
+```
+
+Other services in the cluster can now call `http://demo-api`. Kubernetes DNS resolves the Service name, which is the built-in **service discovery** I mentioned in the microservices post.
+
+### Everyday commands
+
+```bash
+kubectl scale deploy/demo-api --replicas=5          # scale out
+kubectl set image deploy/demo-api api=demo-api:1.1 # rolling update
+kubectl rollout status deploy/demo-api
+kubectl rollout undo deploy/demo-api                 # roll back
+```
+
+<Callout type="note" title="Try it locally">
+  You don't need a cloud account to practise. `kind` or `minikube` runs a cluster on your laptop. With kind, load your local image into the cluster using `kind load docker-image demo-api:1.0`.
+</Callout>
+
+## Common mistakes to avoid
+
+1. **No readiness probe.** Traffic reaches Pods before Spring has finished starting, and the first requests fail.
+2. **Memory limit lower than the heap.** The container gets killed with `OOMKilled`. Size the heap *relative* to the limit.
+3. **Using `latest` tags.** You can't tell what's running or roll back cleanly. Tag images with a version or Git SHA.
+4. **Secrets in the image or in Git.** Inject them at runtime from Secrets.
+
+## Summary
+
+- A **multi-stage, non-root** Dockerfile gives small, safe images.
+- **Compose** is perfect for local multi-container setups.
+- **Kubernetes** keeps the declared state: replicas, rolling updates, discovery.
+- Spring Boot fits Kubernetes well through **Actuator probes**, **graceful shutdown** and **env-based config**.

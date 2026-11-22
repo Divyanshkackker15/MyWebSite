@@ -1,0 +1,241 @@
+/* Self-hosted, open-licence fonts (SIL OFL) — no request to Google at runtime */
+@import '@fontsource-variable/bricolage-grotesque/wght.css';
+@import '@fontsource-variable/geist/wght.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+@import '@fontsource/instrument-serif/400.css';
+@import '@fontsource/instrument-serif/400-italic.css';
+
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------
+   Design tokens. Every colour on the site comes from here, so changing
+   the palette is a one-place edit. Tailwind turns each --color-* into
+   utilities like bg-void, text-amber, border-wire.
+------------------------------------------------------------------- */
+@theme {
+  --color-void: #070a12; /* page background (deep navy) */
+  --color-hull: #0e1320; /* cards, panels */
+  --color-hull-2: #141a2b; /* raised inside cards */
+  --color-wire: #1f2840; /* hairlines and borders */
+  --color-ink: #e9edf5; /* main text 16.9:1 */
+  --color-dim: #8c95ab; /* secondary text 6.6:1 */
+  --color-ghost: #5a6378; /* large text before it "lights up" */
+  --color-amber: #ffb547; /* primary accent */
+  --color-cyan: #4fd1ff; /* data-flow accent */
+  --color-ok: #5be49b; /* availability */
+
+  --font-display: 'Bricolage Grotesque Variable', 'Arial Narrow', system-ui, sans-serif;
+  --font-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Geist Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html {
+    background: var(--color-void);
+    color: var(--color-ink);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-void);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--color-amber) 35%, transparent);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-amber);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+  }
+  /* Lenis recommended styles */
+  html.lenis, html.lenis body { height: auto; }
+  .lenis.lenis-smooth { scroll-behavior: auto !important; }
+  .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+  .lenis.lenis-stopped { overflow: hidden; }
+}
+
+/* the custom cursor replaces the system one only on mouse devices (see Cursor.tsx) */
+html.has-cursor, html.has-cursor a, html.has-cursor button { cursor: none; }
+html.has-cursor input, html.has-cursor textarea, html.has-cursor select { cursor: text; }
+
+/* preloader is skipped before first paint when the inline script in index.html adds .booted */
+html.booted .preloader { display: none; }
+
+@layer components {
+  /* mono label used for "[ 04 / 10 ] PROJECTS" and small captions */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.2;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
+  .container-x {
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+    padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+  }
+  @media (min-width: 768px) {
+    .container-x { padding-left: 2.5rem; padding-right: 2.5rem; }
+  }
+  .hairline { border-color: var(--color-wire); }
+  .glow-amber {
+    filter: drop-shadow(0 0 40px color-mix(in oklab, var(--color-amber) 22%, transparent));
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, color-mix(in oklab, var(--color-wire) 55%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--color-wire) 55%, transparent) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(70% 60% at 50% 40%, #000 30%, transparent 80%);
+  }
+}
+
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+@keyframes ping-soft {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 55%, transparent); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+@keyframes scroll-cue {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(200%); }
+}
+@keyframes marquee { to { transform: translateX(-50%); } }
+.animate-spin-slow { animation: spin-slow 60s linear infinite; }
+.animate-ping-soft { animation: ping-soft 1.8s ease-out infinite; }
+.animate-scroll-cue { animation: scroll-cue 1.8s var(--ease-out-expo) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin-slow, .animate-ping-soft, .animate-scroll-cue, .animate-marquee { animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ------------------------------------------------------------------
+   Article typography for MDX posts (/blog/:slug)
+------------------------------------------------------------------- */
+.prose-dk {
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  color: color-mix(in oklab, var(--color-ink) 88%, var(--color-dim));
+  max-width: 70ch;
+}
+.prose-dk > * + * { margin-top: 1.25em; }
+.prose-dk h2 {
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: clamp(1.6rem, 2.6vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+  margin-top: 2.4em;
+  scroll-margin-top: 6rem;
+}
+.prose-dk h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.3rem;
+  line-height: 1.25;
+  color: var(--color-ink);
+  margin-top: 1.9em;
+  scroll-margin-top: 6rem;
+}
+.prose-dk h2 + *, .prose-dk h3 + * { margin-top: 0.75em; }
+.prose-dk a { color: var(--color-cyan); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.prose-dk a:hover { color: var(--color-amber); }
+.prose-dk strong { color: var(--color-ink); font-weight: 600; }
+/* lists: only Markdown lists (direct children), not the ones inside diagram components */
+.prose-dk > ul, .prose-dk > ol, .prose-dk li > ul, .prose-dk li > ol { padding-left: 1.3em; }
+.prose-dk > ul, .prose-dk li > ul { list-style: disc; }
+.prose-dk > ol, .prose-dk li > ol { list-style: decimal; }
+.prose-dk > ul li + li, .prose-dk > ol li + li { margin-top: 0.4em; }
+.prose-dk > ul li::marker, .prose-dk > ol li::marker { color: var(--color-amber); }
+.prose-dk blockquote {
+  border-left: 2px solid var(--color-amber);
+  padding: 0.25em 0 0.25em 1.1em;
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.3rem;
+  line-height: 1.5;
+}
+.prose-dk :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--color-hull-2);
+  border: 1px solid var(--color-wire);
+  border-radius: 6px;
+  padding: 0.1em 0.38em;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+.prose-dk hr { border: 0; border-top: 1px solid var(--color-wire); margin: 2.5em 0; }
+.prose-dk table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.prose-dk .table-wrap { overflow-x: auto; border: 1px solid var(--color-wire); border-radius: 12px; }
+.prose-dk th, .prose-dk td { text-align: left; padding: 0.65em 0.9em; border-bottom: 1px solid var(--color-wire); vertical-align: top; }
+.prose-dk th { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-dim); background: var(--color-hull); }
+.prose-dk tr:last-child td { border-bottom: 0; }
+/* Shiki output */
+.prose-dk pre.shiki {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  padding: 1.1rem 1.25rem;
+  overflow-x: auto;
+  background: #05070d !important;
+  border-radius: 0 0 12px 12px;
+  tab-size: 2;
+}
+.prose-dk pre.shiki code { display: grid; }
+
+/* ------------------------------------------------------------------
+   Request-flow packets (Projects). Packets move along the track while
+   the diagram is visible (.is-running) and faster on hover.
+------------------------------------------------------------------- */
+.flow-packet {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 999px;
+  background: var(--flow-color);
+  box-shadow: 0 0 10px var(--flow-color), 0 0 24px var(--flow-color);
+  opacity: 0;
+  animation: flow-y 3.6s linear infinite;
+  animation-play-state: paused;
+}
+@media (min-width: 768px) {
+  .flow-packet { left: 0; top: 50%; animation-name: flow-x; }
+}
+.flow.is-running .flow-packet { animation-play-state: running; }
+.flow:hover .flow-packet { animation-duration: 1.8s; }
+@keyframes flow-x {
+  0% { left: 0%; opacity: 0; }
+  8%, 92% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+@keyframes flow-y {
+  0% { top: 0%; opacity: 0; }
+  8%, 92% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-packet { animation: none; opacity: 1; left: 50%; top: 50%; }
+}

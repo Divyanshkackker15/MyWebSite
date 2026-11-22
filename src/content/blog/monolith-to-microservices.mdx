@@ -1,0 +1,251 @@
+---
+title: "From Monolith to Microservices: What I Learned as a Student"
+excerpt: "Microservices aren't a goal, they're a trade. Here's how I learned to see the benefits, the hidden costs, and how to split a system without breaking it."
+date: 2026-11-22
+category: Microservices
+tags: [microservices, spring-boot, architecture, system-design]
+cover: mesh
+featured: true
+order: 1
+---
+
+Most backends start life as a single Spring Boot application: one codebase, one database, one JAR. That works well. But microservices are everywhere: in job descriptions, conference talks and architecture diagrams with forty boxes.
+
+It's easy to conclude "microservices = modern, monolith = old". That's wrong. This post is what I wish I had read at the start: what each style really is, what you gain and pay when you split, and how to split safely.
+
+## What a monolith actually is
+
+A **monolith** is an application deployed as one unit. All features live in the same process and usually share one database. A typical Spring Boot monolith is organised in layers:
+
+<Layers
+  items={[
+    { name: '@RestController', note: 'HTTP in, JSON out' },
+    { name: '@Service', note: 'business rules, transactions' },
+    { name: '@Repository (Spring Data JPA)', note: 'talks to the database' },
+    { name: 'MySQL', note: 'one schema for everything' },
+  ]}
+  caption="A layered monolith: every feature passes through the same layers in one process."
+/>
+
+"Monolith" is not an insult. A well-structured monolith is:
+
+- **Simple to run**: one process, one deploy, one log file.
+- **Fast**: a method call is nanoseconds; a network call is milliseconds.
+- **Easy to keep consistent**: one database transaction can update many tables atomically.
+
+Most successful products started as monoliths. The problems only show up when the application, the team or the traffic grows.
+
+## Why teams move to microservices
+
+A **microservice architecture** splits the system into small services. Each one owns one business capability, has its own database and can be deployed on its own. They talk over the network, through HTTP APIs or events.
+
+The benefits are real, but notice that most of them are about *people and scale*, not code:
+
+1. **Independent deployments.** The payments team can ship a fix without redeploying the whole app.
+2. **Independent scaling.** If search gets 10× more traffic than profile pages, you scale only search.
+3. **Fault isolation.** A memory leak in the notifications service doesn't crash checkout (if you design for it).
+4. **Clear ownership.** One team owns one service end to end.
+5. **Technology freedom.** A service can use a different database or language when it truly needs to.
+
+## The costs nobody puts on the diagram
+
+This is the part that's easy to miss. When you split a monolith you swap **code complexity** for **distributed-system complexity**:
+
+<Compare
+  left={{
+    title: 'Inside a monolith',
+    points: [
+      'Method calls: fast and they never time out',
+      'One transaction across many tables',
+      'One stack trace shows the whole request',
+      'One thing to deploy and monitor',
+    ],
+  }}
+  right={{
+    title: 'Across microservices',
+    points: [
+      'Network calls: slow, and they can fail or hang',
+      'No shared transaction: you need sagas and eventual consistency',
+      'A request crosses 5 services: you need distributed tracing',
+      'Many deploys, many dashboards, many configs',
+    ],
+  }}
+/>
+
+<Callout type="learned">
+  The network is not reliable. Every call between services can be slow, fail, or succeed but lose the response. Once that sank in, I understood why retries, timeouts and idempotency come up in every microservices conversation.
+</Callout>
+
+## Finding the right boundaries
+
+The hardest design question is *where to cut*. Cut in the wrong place and two services constantly call each other. That's a "distributed monolith": all the costs, none of the benefits.
+
+The idea that helped me most comes from Domain-Driven Design: a **bounded context**. It's a part of the business with its own language and rules. Take a school-commute app like GoCruze. If I were splitting an app like that into services, the contexts would look like this:
+
+| Service | Owns | Doesn't own |
+| --- | --- | --- |
+| Identity | users, roles, login, JWT issuing | rides, payments |
+| Booking | ride requests, schedules, seats | user passwords |
+| Tracking | live ride status | booking rules |
+| Notifications | SMS, email, push | anything else |
+
+A good test: **can this service do its main job if the others are down for a minute?** If Booking can't accept a ride request without synchronously asking three other services, the boundary is probably wrong.
+
+## How services talk
+
+There are two main styles, and real systems use both.
+
+### 1. Synchronous: REST calls
+
+Service A calls service B and waits for the answer. With Spring Boot 3.2+ the simplest client is `RestClient`:
+
+```java
+@Configuration
+class ClientConfig {
+
+    @Bean
+    RestClient bookingClient(RestClient.Builder builder) {
+        var factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(2)); // never wait forever
+        factory.setReadTimeout(Duration.ofSeconds(3));
+        return builder
+                .baseUrl("http://booking-service")
+                .requestFactory(factory)
+                .build();
+    }
+}
+
+@Service
+class TrackingService {
+
+    private final RestClient bookingClient;
+
+    TrackingService(RestClient bookingClient) {
+        this.bookingClient = bookingClient;
+    }
+
+    BookingDto findBooking(long bookingId) {
+        return bookingClient.get()
+                .uri("/api/bookings/{id}", bookingId)
+                .retrieve()
+                .body(BookingDto.class);
+    }
+}
+```
+
+The timeouts are the important part. Without them, one slow service makes the threads of every caller pile up. That is how one failure cascades through a whole system.
+
+To stop a failing dependency from being hammered, add a **circuit breaker**. With Resilience4j (`resilience4j-spring-boot3` plus `spring-boot-starter-aop`) it's an annotation:
+
+```java
+@CircuitBreaker(name = "booking", fallbackMethod = "bookingUnavailable")
+public BookingDto findBooking(long bookingId) {
+    return bookingClient.get()
+            .uri("/api/bookings/{id}", bookingId)
+            .retrieve()
+            .body(BookingDto.class);
+}
+
+// same parameters + the exception: called when the call fails or the circuit is open
+private BookingDto bookingUnavailable(long bookingId, Throwable ex) {
+    return BookingDto.unavailable(bookingId);
+}
+```
+
+```yaml
+resilience4j:
+  circuitbreaker:
+    instances:
+      booking:
+        sliding-window-size: 10          # look at the last 10 calls
+        failure-rate-threshold: 50       # open the circuit if 50% failed
+        wait-duration-in-open-state: 10s # then fail fast for 10 seconds
+```
+
+### 2. Asynchronous: events
+
+Instead of asking, a service **announces what happened** and moves on. Others react when they're ready:
+
+<Flow
+  steps={['Booking service', 'Kafka topic: ride-booked', 'Notifications', 'Tracking']}
+  highlight={1}
+  caption="Booking doesn't know or care who listens. New consumers can be added without changing it."
+/>
+
+```java
+@Service
+class BookingService {
+
+    private final KafkaTemplate<String, RideBooked> kafka;
+
+    BookingService(KafkaTemplate<String, RideBooked> kafka) {
+        this.kafka = kafka;
+    }
+
+    @Transactional
+    public Booking book(BookingRequest request) {
+        Booking booking = saveBooking(request);
+        // key = bookingId keeps all events of one booking in order
+        kafka.send("ride-booked", booking.id().toString(), RideBooked.from(booking));
+        return booking;
+    }
+}
+```
+
+Events decouple services in time: if Notifications is down, the events wait in Kafka until it's back. (There's a subtle bug in the code above: the database commit and the Kafka send are not atomic. The fix is the *transactional outbox* pattern. I cover it in my Kafka post.)
+
+<Callout type="tip">
+  A rule of thumb I use: **queries** ("give me booking 42") are usually synchronous; **facts** ("booking 42 was created") are usually events.
+</Callout>
+
+## Data: one database per service
+
+This rule felt strange at first: **services must not share tables.** If Tracking reads Booking's tables directly, you can never change Booking's schema without breaking Tracking. The two are coupled again, just through the database.
+
+So each service owns its data, and others get it through an API or events. That raises a new problem: how do you do something that spans services, like "book a ride and charge the parent"?
+
+You can't wrap it in one `@Transactional`. Instead you use a **saga**: a sequence of local transactions, each publishing an event, with a *compensating* action if a later step fails:
+
+<Flow steps={['Booking: create (PENDING)', 'Payment: charge', 'Booking: CONFIRMED']} caption="If the charge fails, Payment emits PaymentFailed and Booking compensates by cancelling." />
+
+The system is briefly inconsistent (a booking is PENDING before it's paid). That's **eventual consistency**, and designing the UI and business rules around it is part of the job.
+
+## The supporting cast
+
+Once you have more than a few services, you need infrastructure that a monolith never needed:
+
+- **API gateway** (for example Spring Cloud Gateway): one public entry point for routing, auth checks and rate limiting.
+- **Service discovery**: how `booking-service` resolves to a real address. On Kubernetes, the built-in DNS does this.
+- **Centralised configuration and secrets.**
+- **Observability**: structured logs, metrics, and **distributed tracing** (Micrometer Tracing with a trace ID passed from service to service) so you can follow one request across the system.
+
+## How to migrate: the strangler fig
+
+You almost never rewrite a monolith in one go. The safer approach is the **strangler fig pattern**: put a gateway in front, then move one capability at a time into a new service and route its traffic there, until the monolith has nothing left.
+
+<Flow steps={['Client', 'Gateway', '/notifications/** → new service', 'everything else → monolith']} highlight={2} />
+
+Each step is small, reversible and delivers value on its own.
+
+## When I'd stay with a monolith
+
+For a student project, a startup's first version or a small team, I would start with a **modular monolith**: one deployable app, but organised by business module with strict boundaries between packages:
+
+```text
+com.example.commute
+ ├─ identity     (users, auth)        ← public API: IdentityService
+ ├─ booking      (rides, schedules)   ← public API: BookingService
+ └─ notification (email, sms)         ← listens to booking events
+```
+
+Modules only talk through each other's public services or in-process events. If one module later needs to scale on its own, it is already isolated and ready to be extracted.
+
+## What I took away
+
+- Microservices solve **organisational and scaling** problems. If you don't have those problems yet, you pay the costs without the benefits.
+- Design boundaries around **business capabilities**, not technical layers.
+- Assume every network call can **fail, hang or repeat**: use timeouts, circuit breakers and idempotent handlers.
+- Each service **owns its data**. Cross-service workflows become sagas with eventual consistency.
+- Start modular, measure, and **extract services when there's a reason**.
+
+The next posts go deeper into the pieces: securing the APIs with Spring Security and JWT, keeping data consistent under concurrency, and using Kafka for the events.

@@ -1,0 +1,251 @@
+---
+title: "Preventing Race Conditions: Transactions and Concurrency in Spring Boot"
+excerpt: "Lessons from Votezy: why 'check, then insert' breaks under load, what @Transactional does and doesn't protect, and four ways to make concurrent writes correct."
+date: 2026-11-22
+category: Spring Boot
+tags: [transactions, concurrency, spring-data-jpa, mysql, locking]
+cover: locks
+order: 3
+---
+
+Votezy is an online voting system, and voting has one rule that can never break: **each voter's vote counts exactly once**. When you test by hand, clicking "Vote" twice usually looks fine. Under concurrent load, two requests from the same voter can arrive within the same millisecond, and that's where naive code fails.
+
+This post is what I learned about **race conditions**, what `@Transactional` really guarantees, and the patterns that keep concurrent writes correct.
+
+## The bug: check, then act
+
+Here's the code almost everyone writes first:
+
+```java
+@Service
+public class VoteService {
+
+    @Transactional
+    public void castVote(long electionId, long voterId, long candidateId) {
+        if (voteRepository.existsByElectionIdAndVoterId(electionId, voterId)) {
+            throw new AlreadyVotedException();
+        }
+        voteRepository.save(new Vote(electionId, voterId, candidateId));
+    }
+}
+```
+
+It looks safe. Now picture two requests, A and B, from the same voter running in parallel:
+
+| Time | Request A | Request B |
+| --- | --- | --- |
+| t1 | `exists?` → **false** | |
+| t2 | | `exists?` → **false** |
+| t3 | `INSERT` vote | |
+| t4 | | `INSERT` vote |
+| t5 | commit ✅ | commit ✅ |
+
+Two votes. Both requests checked before either one wrote. This is a **check-then-act race condition**.
+
+<Callout type="warn" title="@Transactional is not a lock">
+  Wrapping the method in `@Transactional` doesn't fix it. A transaction makes your changes **atomic** (all or nothing) and **isolated** to a degree. But under MySQL's default isolation level (REPEATABLE READ), a plain `SELECT` reads a consistent snapshot *without locking anything*. Both transactions can see "no vote yet".
+</Callout>
+
+## Isolation levels in one table
+
+| Level | Dirty read | Non-repeatable read | Phantom read |
+| --- | --- | --- | --- |
+| READ UNCOMMITTED | possible | possible | possible |
+| READ COMMITTED | prevented | possible | possible |
+| REPEATABLE READ (MySQL default) | prevented | prevented | mostly prevented for plain reads* |
+| SERIALIZABLE | prevented | prevented | prevented |
+
+\*InnoDB uses snapshots and next-key locks, so the details depend on whether a read is a plain `SELECT` or a locking read.
+
+You *could* set `@Transactional(isolation = Isolation.SERIALIZABLE)`, but that makes every read take locks. It's slow under load and causes many deadlock retries. There are better tools.
+
+## Fix 1: let the database enforce the rule (unique constraint)
+
+The strongest fix is often the simplest: make the duplicate **impossible to store**.
+
+```java
+@Entity
+@Table(
+    name = "vote",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_vote_election_voter",
+        columnNames = {"election_id", "voter_id"}))
+public class Vote {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "election_id", nullable = false)
+    private Long electionId;
+
+    @Column(name = "voter_id", nullable = false)
+    private Long voterId;
+
+    @Column(name = "candidate_id", nullable = false)
+    private Long candidateId;
+    // constructors, getters
+}
+```
+
+```sql
+-- the same rule as a migration (Flyway / Liquibase), which is what production should use
+ALTER TABLE vote ADD CONSTRAINT uk_vote_election_voter UNIQUE (election_id, voter_id);
+```
+
+Now in the race above, request B's `INSERT` fails at commit because the row already exists. Translate that into a clean API response:
+
+```java
+@Transactional
+public void castVote(long electionId, long voterId, long candidateId) {
+    try {
+        voteRepository.saveAndFlush(new Vote(electionId, voterId, candidateId));
+    } catch (DataIntegrityViolationException e) {
+        throw new AlreadyVotedException(); // mapped to HTTP 409 Conflict
+    }
+}
+```
+
+<Callout type="learned">
+  Application code can only *check* a rule. The database can *guarantee* it, because the unique index is enforced inside the storage engine under its own locks, no matter how many app instances are running. For invariants like "one vote per voter", the constraint is the real protection and the `exists` check is just a friendly early error.
+</Callout>
+
+`saveAndFlush` matters here: it forces the `INSERT` to run inside the `try`, instead of at commit time after the method has returned.
+
+## Fix 2: atomic updates for counters (avoid lost updates)
+
+Say each candidate also has a `voteCount` column. The naive version:
+
+```java
+Candidate c = candidateRepository.findById(candidateId).orElseThrow();
+c.setVoteCount(c.getVoteCount() + 1); // read → modify → write
+```
+
+Two transactions read `41`, both write `42`, and one vote disappears. That's a **lost update**. The fix is to do the read-modify-write *inside one SQL statement*:
+
+```java
+public interface CandidateRepository extends JpaRepository<Candidate, Long> {
+
+    @Modifying
+    @Query("update Candidate c set c.voteCount = c.voteCount + 1 where c.id = :id")
+    int incrementVotes(@Param("id") long id);
+}
+```
+
+The database applies `vote_count = vote_count + 1` atomically, taking a row lock for just that statement.
+
+## Fix 3: optimistic locking with @Version
+
+When the change is more complex than `+1`, **optimistic locking** detects conflicts instead of preventing them:
+
+```java
+@Entity
+public class Election {
+    @Id private Long id;
+    private String status; // OPEN, CLOSED
+
+    @Version
+    private long version; // Hibernate adds "where version = ?" to every update
+}
+```
+
+If two transactions load version 3 and both try to save, the second `UPDATE ... WHERE version = 3` matches zero rows, and Spring throws `ObjectOptimisticLockingFailureException`. You then **retry**:
+
+```java
+@Service
+public class ElectionAdmin {
+
+    private final ElectionWriter writer; // a *different* bean, see the pitfall below
+
+    public void closeElection(long id) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                writer.close(id);           // runs in its own @Transactional
+                return;
+            } catch (ObjectOptimisticLockingFailureException e) {
+                if (attempt == 3) throw e;  // give up after 3 tries
+            }
+        }
+    }
+}
+```
+
+Optimistic locking is great when conflicts are **rare**. No locks are held while you work.
+
+## Fix 4: pessimistic locking (SELECT … FOR UPDATE)
+
+When conflicts are **frequent** and retries would be wasteful, lock the row up front:
+
+```java
+public interface BallotRepository extends JpaRepository<Ballot, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE) // → SELECT ... FOR UPDATE
+    @Query("select b from Ballot b where b.electionId = :electionId and b.voterId = :voterId")
+    Optional<Ballot> findForUpdate(@Param("electionId") long electionId, @Param("voterId") long voterId);
+}
+```
+
+Other transactions that want the same row now **wait** until you commit. That's correct, but keep these transactions short, and always lock rows in the same order to avoid deadlocks.
+
+## Which one when?
+
+| Situation | Best tool |
+| --- | --- |
+| "This must never be duplicated" | Unique constraint |
+| Counters, balances, stock levels | Atomic `UPDATE … SET x = x + 1` |
+| Rare conflicts on complex edits | `@Version` + retry |
+| Frequent conflicts on a hot row | `PESSIMISTIC_WRITE`, short transactions |
+| Totals you can compute | Don't store them: `COUNT(*)` with a good index |
+
+That last row is worth thinking about. A stored counter is a second copy of the truth that can drift. In a voting system the votes table *is* the truth, and counting it quickly is an indexing problem, which is the subject of my next post.
+
+## @Transactional pitfalls that bit me
+
+1. **Self-invocation.** Spring applies `@Transactional` through a proxy. If a method calls another `@Transactional` method *in the same class* (`this.save()`), the call skips the proxy and no new transaction starts. Put it in another bean, as `ElectionWriter` above does.
+2. **Private methods** are never transactional through the proxy.
+3. **Checked exceptions don't roll back** by default. Only `RuntimeException` and `Error` do. Use `@Transactional(rollbackFor = Exception.class)` if you need it.
+4. **Long transactions** hold locks and connections. Never call a slow external API while a transaction is open.
+
+## Proving it with a concurrency test
+
+Race conditions don't show up in normal unit tests, so fire the requests at the same time on purpose:
+
+```java
+@SpringBootTest
+class VoteConcurrencyTest {
+
+    @Autowired VoteService voteService;
+    @Autowired VoteRepository voteRepository;
+
+    @Test
+    void sameVoterVotingTwentyTimesAtOnceIsCountedOnce() throws Exception {
+        int threads = 20;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<?>> results = new ArrayList<>();
+
+        for (int i = 0; i < threads; i++) {
+            results.add(pool.submit(() -> {
+                start.await();                       // everyone waits at the gate…
+                voteService.castVote(1L, 42L, 7L);
+                return null;
+            }));
+        }
+        start.countDown();                           // …then all go at once
+
+        for (Future<?> f : results) {
+            try { f.get(); } catch (ExecutionException ignored) { /* AlreadyVotedException is expected */ }
+        }
+        pool.shutdown();
+
+        assertThat(voteRepository.countByElectionIdAndVoterId(1L, 42L)).isEqualTo(1);
+    }
+}
+```
+
+Run this against the **same database engine you use in production**, for example MySQL in Testcontainers. In-memory databases like H2 lock and isolate differently and can hide (or invent) problems.
+
+## What I took away
+
+- `@Transactional` gives atomicity, **not mutual exclusion**.
+- Put invariants **in the database**: unique constraints, atomic updates.
+- Choose **optimistic** locking for rare conflicts and **pessimistic** for hot rows.
+- Write a test that **forces** the race. If you never saw it fail, you don't know it's fixed.

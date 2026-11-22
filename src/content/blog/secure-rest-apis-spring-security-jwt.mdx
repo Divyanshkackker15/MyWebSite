@@ -1,0 +1,323 @@
+---
+title: "Building Secure REST APIs with Spring Boot 3, Spring Security 6 and JWT"
+excerpt: "Lessons from GoCruze: stateless authentication with signed JWTs, role-based access for three user roles, and tests that prove the rules actually hold."
+date: 2026-11-22
+category: Spring Boot
+tags: [spring-security, jwt, rest-api, oauth2, rbac, junit5]
+cover: shield
+order: 2
+---
+
+GoCruze is a ride-booking backend for working parents, so its API handles children's school commutes. For an app like that, security can't be an afterthought. It shapes the design: who is calling, what are they allowed to do, and how do you *prove* the rules work?
+
+This post walks through the approach I learned: **stateless JWT authentication with Spring Security 6**, **role-based access control (RBAC)** for three roles, and **JUnit 5 tests** for the security rules. The roles here (`PARENT`, `DRIVER`, `ADMIN`) are examples to keep the code concrete.
+
+## Authentication vs authorization
+
+Two words that are easy to mix up:
+
+- **Authentication**: *who are you?* (log in, prove identity)
+- **Authorization**: *what may you do?* (roles, ownership, permissions)
+
+Spring Security handles both through a chain of servlet **filters** that every request passes through before it reaches your controller.
+
+<Flow
+  steps={['Request + Bearer token', 'Security filter chain', 'JWT validated → SecurityContext', 'URL + method rules', 'Controller']}
+  highlight={2}
+  caption="If any step fails, the request never reaches the controller: 401 for 'who are you?', 403 for 'not allowed'."
+/>
+
+## Why JWT for a REST API
+
+A classic web app keeps a **session** on the server and gives the browser a cookie. That works, but every server instance needs access to the session store.
+
+A **JSON Web Token** carries the identity inside the token itself:
+
+```text
+eyJhbGciOiJIUzI1NiJ9 . eyJzdWIiOiJhc2hhQGV4YW1wbGUuY29tIiwicm9sZXMiOlsiUEFSRU5UIl19 . 3q2+7w...
+      header                         payload (claims)                                signature
+```
+
+- The **header** says how it's signed (for example HS256).
+- The **payload** holds *claims*: subject (user), roles, issue time, expiry.
+- The **signature** proves the token was issued by us and not modified.
+
+<Callout type="warn" title="Signed is not encrypted">
+  Anyone can Base64-decode a JWT and read the payload. Never put passwords, phone numbers or other private data in it. The signature only guarantees it hasn't been *changed*.
+</Callout>
+
+Because the server only needs the signing key to verify a token, the API is **stateless**. Any instance can handle any request, which makes scaling out simple.
+
+## Use what Spring Security already gives you
+
+It's tempting to write a custom `OncePerRequestFilter` that parses the token by hand, and many tutorials do. But Spring Security ships a complete, tested implementation: the **OAuth 2.0 Resource Server** support. It reads the `Authorization: Bearer` header, verifies the signature and expiry, and builds the `Authentication` for you.
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-validation</artifactId>
+</dependency>
+```
+
+### The security configuration
+
+```java
+@Configuration
+@EnableMethodSecurity // enables @PreAuthorize on service/controller methods
+public class SecurityConfig {
+
+    @Bean
+    SecurityFilterChain api(HttpSecurity http) throws Exception {
+        http
+            // no cookies → no CSRF risk for this stateless API
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/bookings/**").hasRole("PARENT")
+                .requestMatchers("/api/trips/**").hasAnyRole("DRIVER", "ADMIN")
+                .anyRequest().authenticated())
+            .oauth2ResourceServer(oauth -> oauth
+                .jwt(jwt -> jwt.jwtAuthenticationConverter(rolesFromJwt())));
+        return http.build();
+    }
+
+    /** Turns the token's "roles" claim ["PARENT"] into authorities [ROLE_PARENT]. */
+    private JwtAuthenticationConverter rolesFromJwt() {
+        var authorities = new JwtGrantedAuthoritiesConverter();
+        authorities.setAuthoritiesClaimName("roles");
+        authorities.setAuthorityPrefix("ROLE_");
+        var converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(authorities);
+        return converter;
+    }
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(); // slow on purpose: hard to brute-force
+    }
+
+    @Bean
+    AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        // built by Spring Boot from our UserDetailsService + PasswordEncoder beans
+        return config.getAuthenticationManager();
+    }
+}
+```
+
+Rules are checked **top to bottom, first match wins**, so specific paths go before general ones and `anyRequest()` comes last.
+
+### Signing and verifying tokens
+
+For a single API that issues and checks its own tokens, a symmetric HMAC key (HS256) is enough. The key must be at least 256 bits and must come from the environment, never from the code:
+
+```java
+@Configuration
+class JwtConfig {
+
+    @Bean
+    SecretKey jwtKey(@Value("${app.jwt.secret}") String secret) {
+        // app.jwt.secret is set from an environment variable, min. 32 bytes
+        return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+    }
+
+    @Bean
+    JwtDecoder jwtDecoder(SecretKey jwtKey) {
+        return NimbusJwtDecoder.withSecretKey(jwtKey).build(); // checks signature + expiry
+    }
+
+    @Bean
+    JwtEncoder jwtEncoder(SecretKey jwtKey) {
+        return new NimbusJwtEncoder(new ImmutableSecret<>(jwtKey));
+    }
+}
+```
+
+<Callout type="note">
+  When several services need to verify tokens, switch to an asymmetric key pair (RS256): only the auth service holds the private key, and everyone else verifies with the public key. Or use a dedicated authorization server.
+</Callout>
+
+### Issuing a token at login
+
+```java
+@Service
+public class TokenService {
+
+    private final JwtEncoder encoder;
+
+    public TokenService(JwtEncoder encoder) {
+        this.encoder = encoder;
+    }
+
+    public String issue(Authentication auth) {
+        Instant now = Instant.now();
+        List<String> roles = auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)      // "ROLE_PARENT"
+                .map(a -> a.replaceFirst("^ROLE_", ""))   // "PARENT"
+                .toList();
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("commute-api")
+                .issuedAt(now)
+                .expiresAt(now.plus(15, ChronoUnit.MINUTES)) // short-lived on purpose
+                .subject(auth.getName())
+                .claim("roles", roles)
+                .build();
+
+        JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
+        return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+    }
+}
+```
+
+```java
+@RestController
+@RequestMapping("/api/auth")
+class AuthController {
+
+    private final AuthenticationManager authManager;
+    private final TokenService tokens;
+
+    AuthController(AuthenticationManager authManager, TokenService tokens) {
+        this.authManager = authManager;
+        this.tokens = tokens;
+    }
+
+    record LoginRequest(@NotBlank @Email String email, @NotBlank String password) {}
+    record TokenResponse(String accessToken, String tokenType, long expiresInSeconds) {}
+
+    @PostMapping("/login")
+    TokenResponse login(@Valid @RequestBody LoginRequest req) {
+        // throws BadCredentialsException → 401 if the password is wrong
+        Authentication auth = authManager.authenticate(
+                UsernamePasswordAuthenticationToken.unauthenticated(req.email(), req.password()));
+        return new TokenResponse(tokens.issue(auth), "Bearer", 900);
+    }
+}
+```
+
+The users come from MySQL through a `UserDetailsService`:
+
+```java
+@Service
+class AppUserDetailsService implements UserDetailsService {
+
+    private final UserRepository users;
+
+    AppUserDetailsService(UserRepository users) {
+        this.users = users;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String email) {
+        return users.findByEmail(email)
+                .map(u -> User.withUsername(u.getEmail())
+                        .password(u.getPasswordHash())   // stored as a BCrypt hash, never plain text
+                        .roles(u.getRole().name())       // PARENT, DRIVER or ADMIN
+                        .build())
+                .orElseThrow(() -> new UsernameNotFoundException("Unknown user"));
+    }
+}
+```
+
+## RBAC beyond URLs: ownership rules
+
+URL rules answer "may a PARENT call `POST /api/bookings`?". They can't answer "may *this* parent see *that* booking?". For that, use method security:
+
+```java
+@Service
+public class BookingService {
+
+    @PreAuthorize("hasRole('ADMIN') or @bookingAccess.isOwner(#bookingId, authentication)")
+    public BookingDto getBooking(long bookingId) {
+        // ...
+    }
+}
+
+@Component("bookingAccess")
+class BookingAccess {
+
+    private final BookingRepository bookings;
+
+    BookingAccess(BookingRepository bookings) {
+        this.bookings = bookings;
+    }
+
+    public boolean isOwner(long bookingId, Authentication auth) {
+        return bookings.existsByIdAndParentEmail(bookingId, auth.getName());
+    }
+}
+```
+
+<Callout type="learned">
+  Most real security bugs are **broken object-level authorization**: user A changes an ID in the URL and sees user B's data. Role checks alone don't prevent that. Ownership checks do.
+</Callout>
+
+## Testing the rules with JUnit 5
+
+Security config is code, so it gets tests. `spring-security-test` has a `jwt()` helper that fakes an authenticated token without needing real signing:
+
+```java
+@WebMvcTest(BookingController.class)
+@Import({SecurityConfig.class, JwtConfig.class})
+@TestPropertySource(properties = "app.jwt.secret=test-secret-that-is-at-least-32-bytes-long!!")
+class BookingSecurityTest {
+
+    @Autowired MockMvc mvc;
+    @MockitoBean BookingService bookingService; // @MockBean before Spring Boot 3.4
+
+    @Test
+    void anonymousRequestIsRejectedWith401() throws Exception {
+        mvc.perform(post("/api/bookings").contentType(APPLICATION_JSON).content("{}"))
+           .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void driverCannotCreateBookings() throws Exception {
+        mvc.perform(post("/api/bookings")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DRIVER")))
+                .contentType(APPLICATION_JSON).content("{}"))
+           .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void parentCanCreateBookings() throws Exception {
+        mvc.perform(post("/api/bookings")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_PARENT")))
+                .contentType(APPLICATION_JSON)
+                .content("""
+                    {"childId": 7, "pickupTime": "07:30"}
+                    """))
+           .andExpect(status().isCreated());
+    }
+}
+```
+
+A test per role per sensitive endpoint feels repetitive, but it's the only way to be sure a refactor didn't quietly open something up.
+
+## My hardening checklist
+
+| Area | What to do |
+| --- | --- |
+| Tokens | Short expiry (≈15 min) plus a refresh-token flow; HTTPS only |
+| Secrets | Signing key from env or a secrets manager; rotate it |
+| Passwords | BCrypt (or Argon2) hashes; never log credentials |
+| Input | `@Valid` on every request body; return 400 with clear messages |
+| Login | Rate-limit `/api/auth/login` to slow down guessing |
+| CORS | Allow only your real front-end origins |
+| Errors | 401 vs 403 used correctly; no stack traces in responses |
+| Logs | Never log tokens or full request bodies with personal data |
+
+## What I took away
+
+1. Don't hand-roll token parsing. **Spring Security's resource-server support** is tested and complete.
+2. **Stateless + short-lived tokens** keep the API easy to scale.
+3. Combine **URL rules** (coarse) with **method rules** (ownership) for real RBAC.
+4. **Test the security rules** like any other business rule.
+
+Next: what happens when two requests try to change the same data at the same moment, and how transactions and locking keep it correct.

@@ -1,0 +1,210 @@
+---
+title: "System Design Basics: Scalability, Load Balancing and Caching with Redis"
+excerpt: "The first three ideas I'm learning in system design: scale out with stateless services, spread traffic with a load balancer, and take pressure off the database with a Redis cache."
+date: 2026-11-22
+category: System Design
+tags: [system-design, scalability, load-balancing, redis, caching]
+cover: balancer
+order: 7
+---
+
+System design is the stage of my learning journey I'm in right now, so this post is a set of study notes rather than war stories. These are the three ideas that come up in almost every design discussion: **scaling**, **load balancing** and **caching**. I use a voting app as the running example, because elections create a perfect traffic problem: almost nothing for weeks, then everyone at once.
+
+## Start with the numbers
+
+Before drawing boxes, estimate. Say an election has **100,000 voters**, and most vote in the last hour.
+
+- Writes: 100,000 votes / 3,600 s ≈ **28 votes per second** on average. Peaks can easily be 5–10× that, so design for **~300/s**.
+- Reads: if every voter refreshes the results page a few times, that's maybe **10× the writes**: ~3,000 reads/s at peak.
+
+That quick sum already tells us something useful: **this system is read-heavy**, and the results query is the hot path. A cache belongs exactly there.
+
+<Callout type="tip">
+  These back-of-the-envelope numbers don't need to be precise. Getting the order of magnitude right (is it 10/s or 10,000/s?) is what decides the architecture.
+</Callout>
+
+## Scaling: up or out
+
+**Vertical scaling (scale up):** a bigger machine with more CPU and RAM. Simple, no code changes, but there's a ceiling, and that one machine is a single point of failure.
+
+**Horizontal scaling (scale out):** more machines running copies of the app. No hard ceiling, and one failing copy doesn't take the system down. But it only works if the app is **stateless**.
+
+### What "stateless" means in practice
+
+If instance A keeps a user's session in its memory, the next request must go back to A. Scaling out then gets awkward. Stateless means **any instance can serve any request**:
+
+- Authentication via **JWT** (the token carries the identity), or sessions stored in **Redis** with Spring Session.
+- Files in **object storage**, not on the instance's disk.
+- Scheduled jobs guarded so only one instance runs them (or moved to a separate worker).
+
+## Load balancing
+
+Once you have several instances, a **load balancer** gives clients one address and spreads requests across them.
+
+<Flow steps={['Clients', 'Load balancer', 'API #1 · API #2 · API #3', 'MySQL']} highlight={1} />
+
+### Common algorithms
+
+| Algorithm | How it picks a server | Good for |
+| --- | --- | --- |
+| Round robin | Next in the list, in turn | Similar servers, similar requests |
+| Least connections | The one with the fewest active requests | Requests with very different durations |
+| IP / consistent hash | Same client (or key) → same server | Cache locality, sticky behaviour |
+
+### Health checks
+
+A load balancer must stop sending traffic to a broken instance. With Spring Boot Actuator, `/actuator/health` gives it something to check. A minimal Nginx setup looks like this:
+
+```nginx
+upstream api_backend {
+    least_conn;                      # pick the least busy instance
+    server api1:8080 max_fails=3 fail_timeout=10s;
+    server api2:8080 max_fails=3 fail_timeout=10s;
+    server api3:8080 max_fails=3 fail_timeout=10s;
+}
+
+server {
+    listen 80;
+    location /api/ {
+        proxy_pass http://api_backend;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_connect_timeout 2s;
+        proxy_read_timeout 5s;
+    }
+}
+```
+
+(In Kubernetes, a Service plus readiness probes does this job for you.)
+
+**L4 vs L7:** a layer-4 balancer routes TCP connections without reading them, which is very fast. A layer-7 balancer understands HTTP, so it can route `/api/results` and `/api/votes` differently, terminate TLS and add headers.
+
+## Caching: the biggest win for read-heavy systems
+
+A cache keeps the answer to an expensive question close by, so you don't ask the database again. Caches exist at many levels: the browser, a CDN, the application, the database's own buffer pool. Here I'll focus on an **application cache in Redis**.
+
+### Cache-aside (lazy loading)
+
+The most common pattern:
+
+1. The app asks the cache.
+2. **Hit**: return the cached value.
+3. **Miss**: query the database, store the result in the cache with a **TTL**, return it.
+
+<Flow steps={['Request', 'Redis: hit?', 'miss → MySQL', 'store in Redis (TTL)', 'Response']} highlight={1} />
+
+### Cache-aside with Spring Boot and Redis
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-redis</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-cache</artifactId>
+</dependency>
+```
+
+```yaml
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  cache:
+    type: redis
+```
+
+```java
+@Configuration
+@EnableCaching
+class CacheConfig {
+
+    /** Defaults for every cache: JSON values, 30 s TTL, don't cache nulls. */
+    @Bean
+    RedisCacheConfiguration cacheConfiguration() {
+        return RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofSeconds(30))
+                .disableCachingNullValues()
+                .serializeValuesWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(new GenericJackson2JsonRedisSerializer()));
+    }
+}
+```
+
+```java
+@Service
+public class ResultsService {
+
+    private final VoteRepository votes;
+
+    public ResultsService(VoteRepository votes) {
+        this.votes = votes;
+    }
+
+    // key = "results::12" for election 12; computed at most once per TTL
+    @Cacheable(cacheNames = "results", key = "#electionId")
+    public List<CandidateTally> results(long electionId) {
+        return votes.tally(electionId);   // the expensive aggregate query
+    }
+
+    // when an election closes, drop its cached results so the final numbers show at once
+    @CacheEvict(cacheNames = "results", key = "#electionId")
+    public void onElectionClosed(long electionId) { }
+}
+```
+
+With a 30-second TTL, 3,000 reads per second become **one database query per election every 30 seconds**. The price is that results can be up to 30 seconds old. For a live results page that's usually a fine trade. For "has *this* voter already voted?" it is not: that check must always hit the source of truth.
+
+### The hard parts of caching
+
+- **Invalidation.** When the data changes, the cache is wrong until it expires or is evicted. Short TTLs plus explicit eviction on important changes is a practical default.
+- **Stampede.** A popular key expires and 1,000 requests miss at once and all hit the database. Mitigations: stagger TTLs with a little randomness, or let only one request rebuild the value while the others wait or serve the old one.
+- **What not to cache.** Data that must be exact right now, per-user data with little reuse, and anything sensitive without thinking about who can read the cache.
+
+## Redis is more than a cache
+
+The same Redis instance helps with other scaling problems. A simple **rate limiter**, for example (fixed one-minute window):
+
+```java
+@Component
+class LoginRateLimiter {
+
+    private final StringRedisTemplate redis;
+
+    LoginRateLimiter(StringRedisTemplate redis) {
+        this.redis = redis;
+    }
+
+    /** At most 5 login attempts per email per minute, shared across all app instances. */
+    boolean allow(String email) {
+        String key = "rl:login:" + email;
+        Long attempts = redis.opsForValue().increment(key);   // atomic INCR
+        if (attempts != null && attempts == 1) {
+            redis.expire(key, Duration.ofMinutes(1));         // window starts at the first attempt
+        }
+        return attempts != null && attempts <= 5;
+    }
+}
+```
+
+Because the counter lives in Redis and not in one instance's memory, the limit holds no matter which instance the load balancer picks. That's the same "keep state out of the app" idea again.
+
+## Scaling the database
+
+The app tier is easy to multiply. The database is harder:
+
+1. **Indexes and better queries** first (see my indexing post). They're often the cheapest 10× you'll get.
+2. **Cache** the hot reads (above).
+3. **Read replicas**: copies that serve reads, while the primary takes writes. Replicas lag slightly behind, so read-your-own-writes needs care.
+4. **Sharding**: splitting data across databases by a key. Powerful, but complex. It's the last resort.
+
+## My notes so far, in one list
+
+- **Estimate** load first; it tells you whether you're read- or write-heavy.
+- Make services **stateless** so you can **scale out**.
+- Put a **load balancer** with **health checks** in front.
+- **Cache** read-heavy, slightly-stale-is-fine data with a **TTL**; never cache the checks that must be exact.
+- Fix the **database** in order: queries and indexes → cache → replicas → sharding.
+
+Next on my list: consistency models, message queues for absorbing spikes, and how real systems handle failures across regions.

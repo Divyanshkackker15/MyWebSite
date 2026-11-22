@@ -1,0 +1,190 @@
+---
+title: "How I Made My Queries 40% Faster: Indexing and JOIN Optimization in Spring Data JPA"
+excerpt: "Measure first, then fix: spotting N+1 queries, writing one aggregate query instead of many, and designing composite indexes that MySQL can actually use."
+date: 2026-11-22
+category: Databases
+tags: [mysql, indexing, spring-data-jpa, hibernate, performance]
+cover: index
+order: 4
+---
+
+In Votezy, election results are aggregated per candidate in real time. Working on indexed queries and JOIN optimization in Spring Data JPA cut that query time by about **40%**. This post explains the techniques behind that kind of improvement, using a small voting schema, so you can apply them to your own app.
+
+<Callout type="note">
+  The `EXPLAIN` outputs below are illustrative and the numbers are not from a benchmark. Your row counts and timings will differ. What matters is the *shape* of the plan before and after.
+</Callout>
+
+## Step 0: measure before you optimise
+
+You can't improve what you can't see. JPA hides SQL, so the first job is to make it visible:
+
+```yaml
+# application-dev.yml
+logging:
+  level:
+    org.hibernate.SQL: debug                                 # every SQL statement
+    org.hibernate.orm.jdbc.bind: trace                       # the bound parameter values
+spring:
+  jpa:
+    properties:
+      hibernate.generate_statistics: true                    # query counts and timings per session
+```
+
+Then, for any slow query, ask MySQL how it plans to run it:
+
+```sql
+EXPLAIN ANALYZE
+SELECT candidate_id, COUNT(*) FROM vote WHERE election_id = 12 GROUP BY candidate_id;
+```
+
+`EXPLAIN ANALYZE` (MySQL 8.0.18+) actually runs the query and shows the real time spent in each step.
+
+## The example schema
+
+<Layers
+  items={[
+    { name: 'election (id, title, status)', note: 'a few rows' },
+    { name: 'candidate (id, election_id, name)', note: 'tens of rows per election' },
+    { name: 'vote (id, election_id, candidate_id, voter_id, created_at)', note: 'grows fast: the hot table' },
+  ]}
+/>
+
+## Problem 1: the N+1 query
+
+The first version of a results endpoint often looks like this:
+
+```java
+@Transactional(readOnly = true)
+public List<ResultDto> results(long electionId) {
+    List<Candidate> candidates = candidateRepository.findByElectionId(electionId); // 1 query
+    return candidates.stream()
+            .map(c -> new ResultDto(c.getName(), c.getVotes().size()))            // +1 query EACH
+            .toList();
+}
+```
+
+`c.getVotes()` is a lazy collection, so Hibernate runs one more query **per candidate** and loads **every vote row** into memory just to count them. With 20 candidates that's 21 queries and potentially millions of entities. This is the classic **N+1 problem**, and the SQL log makes it obvious: the same `select ... from vote where candidate_id=?` repeated over and over.
+
+## Fix 1: let the database aggregate (one query, DTO projection)
+
+Counting is what databases are good at. Ask for exactly the answer, not the raw rows:
+
+```java
+public record CandidateTally(Long candidateId, String name, Long votes) {}
+
+public interface VoteRepository extends JpaRepository<Vote, Long> {
+
+    @Query("""
+        select new com.example.votezy.results.CandidateTally(c.id, c.name, count(v.id))
+        from Candidate c
+        left join Vote v on v.candidateId = c.id
+        where c.electionId = :electionId
+        group by c.id, c.name
+        order by count(v.id) desc
+        """)
+    List<CandidateTally> tally(@Param("electionId") long electionId);
+}
+```
+
+- **One round trip** instead of N+1.
+- **No entities** are created, so there's no persistence-context overhead. The constructor expression builds the record directly.
+- `left join` keeps candidates with zero votes in the result.
+
+When you *do* need entities with their associations, fetch them in the same query with `join fetch` or `@EntityGraph`:
+
+```java
+@EntityGraph(attributePaths = "candidates")
+Optional<Election> findWithCandidatesById(long id);
+```
+
+## Fix 2: an index that matches the query
+
+Even with one query, MySQL still has to find the votes for election 12. Without a suitable index it reads the **whole table**:
+
+```text
+-> Table scan on vote  (rows=1000000)                       ← reads everything
+   -> Filter: (vote.election_id = 12)
+      -> Aggregate using temporary table                     ← extra work for GROUP BY
+```
+
+A composite index on the columns the query **filters by, then groups by** fixes both problems:
+
+```sql
+CREATE INDEX idx_vote_election_candidate ON vote (election_id, candidate_id);
+```
+
+```text
+-> Group aggregate: count(0)
+   -> Covering index lookup on vote using idx_vote_election_candidate (election_id=12)   ← only this election
+```
+
+Two things improved:
+
+1. **Index lookup instead of a table scan**: only election 12's entries are read.
+2. **Covering index**: everything the query needs (`election_id`, `candidate_id`) is *in the index*. MySQL never touches the table rows, and because the index is already sorted by `candidate_id`, the `GROUP BY` needs no temporary table.
+
+### The leftmost-prefix rule
+
+A composite index `(election_id, candidate_id)` is like a phone book sorted by last name, then first name:
+
+| Query filters on | Can use the index? |
+| --- | --- |
+| `election_id` | ✅ yes |
+| `election_id` and `candidate_id` | ✅ yes |
+| `candidate_id` only | ❌ no (it's not the leftmost column) |
+
+So **column order matters**: put the column you filter on with `=` first.
+
+Declare indexes alongside the entity so the intent is visible in the code, and create them for real in a migration:
+
+```java
+@Entity
+@Table(name = "vote", indexes = {
+    @Index(name = "idx_vote_election_candidate", columnList = "election_id, candidate_id")
+})
+public class Vote { /* ... */ }
+```
+
+## Fix 3: smaller tricks that add up
+
+**Don't wrap indexed columns in functions.** This can't use an index on `created_at`:
+
+```sql
+WHERE DATE(created_at) = '2026-11-20'
+```
+
+This can:
+
+```sql
+WHERE created_at >= '2026-11-20' AND created_at < '2026-11-21'
+```
+
+**Select only what you need.** An interface or record projection fetches three columns instead of thirty.
+
+**Batch lazy loads** when you can't avoid them. This makes Hibernate load lazy collections in groups of 25 instead of one by one:
+
+```yaml
+spring:
+  jpa:
+    properties:
+      hibernate.default_batch_fetch_size: 25
+```
+
+**Paginate with a key, not a big OFFSET.** `OFFSET 100000` still walks past 100,000 rows. "Keyset" pagination (`WHERE id > :lastSeenId ORDER BY id LIMIT 50`) jumps straight there using the primary key.
+
+## Don't over-index
+
+Every index speeds up reads but **slows down writes**: each `INSERT` into `vote` must also update every index on it. For a write-heavy table like votes, add indexes for the queries you actually run, check them with `EXPLAIN`, and drop the ones nothing uses.
+
+## The checklist I now follow
+
+1. Turn on SQL logging and **count the queries** per request.
+2. Kill **N+1** with aggregate queries, projections, `join fetch` or entity graphs.
+3. `EXPLAIN ANALYZE` the slow ones and look for **table scans** and **temporary tables**.
+4. Add a **composite index** matching `WHERE` (equality first), then `GROUP BY` / `ORDER BY`.
+5. Aim for **covering indexes** on hot read paths.
+6. **Measure again**. Keep the change only if the numbers improved.
+
+<Callout type="learned">
+  Most "slow database" problems I've seen were really "the app asked the database the wrong question" problems. Ask for the answer (an aggregate), not the raw data, and give the database an index that matches the question.
+</Callout>

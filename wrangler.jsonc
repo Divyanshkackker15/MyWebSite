@@ -1,0 +1,12 @@
+// Optional: only needed if you deploy with Cloudflare *Workers* (static assets)
+// instead of Cloudflare *Pages*. See DEPLOYMENT.md → "Option B".
+{
+  "name": "kackker-portfolio",
+  "compatibility_date": "2025-10-01",
+  "assets": {
+    "directory": "./dist",
+    // /blog/foo → dist/blog/foo.html, unknown URLs → dist/404.html
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}

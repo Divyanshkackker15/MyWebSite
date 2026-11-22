@@ -1,0 +1,242 @@
+---
+title: "Apache Kafka for Microservices: Event-Driven Communication Explained"
+excerpt: "Topics, partitions, offsets and consumer groups in plain words, then a working Spring Boot producer and consumer, retries, dead-letter topics and the outbox pattern."
+date: 2026-11-22
+category: Microservices
+tags: [kafka, event-driven, spring-kafka, microservices, outbox]
+cover: stream
+order: 5
+---
+
+"Kafka is a distributed commit log" is accurate, but it doesn't help much when you're starting out. A simpler picture works better: **Kafka is an append-only notebook that many services can read at their own pace.** Producers write facts at the end ("ride 42 was booked"). Consumers keep a bookmark of how far they've read.
+
+This post explains the core ideas, then builds a small producer and consumer with Spring Boot. Examples use Spring Boot 3.x with `spring-kafka`.
+
+## Why events at all?
+
+With REST calls, the booking service would have to call notifications, tracking and analytics directly, and wait for each one. If any of them is down, booking fails or slows down.
+
+With events, booking **publishes one fact** and is done:
+
+<Flow
+  steps={['Booking service', 'topic: ride-booked', 'Notifications · Tracking · Analytics']}
+  highlight={1}
+  caption="The producer doesn't know who listens. Add a new consumer tomorrow without touching booking."
+/>
+
+That gives you:
+
+- **Loose coupling**: services don't need each other's addresses or APIs.
+- **Resilience**: if a consumer is down, events wait in Kafka until it's back.
+- **Replay**: a new service can read the history from the beginning.
+
+## The core vocabulary
+
+| Term | Plain meaning |
+| --- | --- |
+| **Broker** | A Kafka server. A cluster has several for safety. |
+| **Topic** | A named stream of events, like `ride-booked`. |
+| **Partition** | A topic is split into partitions: ordered, append-only logs that spread load across brokers. |
+| **Offset** | An event's position in a partition (0, 1, 2…). |
+| **Producer** | Writes events to a topic. |
+| **Consumer group** | A set of instances of one service. Each partition is read by exactly one member of the group. |
+| **Retention** | How long events are kept (time or size), whether or not they've been read. |
+
+### Ordering and keys
+
+Kafka guarantees order **within a partition**, not across a whole topic. The producer picks the partition from the event **key**: same key, same partition, so events stay in order.
+
+If you use `bookingId` as the key, all events for booking 42 (created → paid → cancelled) arrive in order, while different bookings are processed in parallel.
+
+### Consumer groups = scaling
+
+A topic with 3 partitions consumed by a group of 3 instances gives each instance one partition. Add a 4th instance and it sits idle. **The partition count is your maximum parallelism**, so choose it with growth in mind.
+
+## Run Kafka locally
+
+The official image runs a single-node broker in KRaft mode (no ZooKeeper needed):
+
+```yaml
+# docker-compose.yml
+services:
+  kafka:
+    image: apache/kafka:3.8.0
+    ports:
+      - "9092:9092"
+```
+
+```bash
+docker compose up -d
+```
+
+## A producer in Spring Boot
+
+```xml
+<dependency>
+    <groupId>org.springframework.kafka</groupId>
+    <artifactId>spring-kafka</artifactId>
+</dependency>
+```
+
+```yaml
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all                       # wait until all in-sync replicas have the event
+      properties:
+        enable.idempotence: true      # broker drops duplicates caused by producer retries
+```
+
+The event itself is a small immutable record. Use past tense, because it describes something that already happened:
+
+```java
+public record RideBooked(String bookingId, long parentId, String pickupTime, Instant occurredAt) {}
+```
+
+Create the topic from code, so every environment has the same setup:
+
+```java
+@Configuration
+class TopicConfig {
+    @Bean
+    NewTopic rideBookedTopic() {
+        return TopicBuilder.name("ride-booked").partitions(3).replicas(1).build(); // replicas=3 in production
+    }
+}
+```
+
+```java
+@Service
+public class RideEventPublisher {
+
+    private static final Logger log = LoggerFactory.getLogger(RideEventPublisher.class);
+    private final KafkaTemplate<String, RideBooked> kafka;
+
+    public RideEventPublisher(KafkaTemplate<String, RideBooked> kafka) {
+        this.kafka = kafka;
+    }
+
+    public void publish(RideBooked event) {
+        kafka.send("ride-booked", event.bookingId(), event)       // key = bookingId → ordering per booking
+             .whenComplete((result, ex) -> {
+                 if (ex != null) log.error("Failed to publish {}", event.bookingId(), ex);
+                 else log.debug("Published to partition {} offset {}",
+                         result.getRecordMetadata().partition(), result.getRecordMetadata().offset());
+             });
+    }
+}
+```
+
+## A consumer in Spring Boot
+
+```yaml
+spring:
+  kafka:
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest     # a brand-new group starts from the oldest event
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.example.events"
+```
+
+```java
+@Component
+class RideBookedListener {
+
+    private final NotificationService notifications;
+
+    RideBookedListener(NotificationService notifications) {
+        this.notifications = notifications;
+    }
+
+    @KafkaListener(topics = "ride-booked", groupId = "notification-service")
+    void on(RideBooked event) {
+        notifications.sendBookingConfirmation(event.parentId(), event.bookingId());
+    }
+}
+```
+
+By default Spring commits the offset **after** your method returns successfully. If the service crashes halfway, the event is delivered again after restart. That's **at-least-once** delivery.
+
+## Failures: retries and dead-letter topics
+
+What if `sendBookingConfirmation` throws because the SMS provider is down? Retry a few times with a delay, then park the event in a **dead-letter topic (DLT)** so it doesn't block the partition:
+
+```java
+@Configuration
+class KafkaErrorConfig {
+
+    @Bean
+    DefaultErrorHandler errorHandler(KafkaTemplate<Object, Object> template) {
+        // after retries are exhausted, publish the event to "<topic>.DLT"
+        var recoverer = new DeadLetterPublishingRecoverer(template);
+        // 3 retries, 2 seconds apart
+        return new DefaultErrorHandler(recoverer, new FixedBackOff(2000L, 3));
+    }
+}
+```
+
+Spring Boot wires this error handler into the listener containers automatically. Someone (or a scheduled job) can inspect `ride-booked.DLT` later and replay the events once the problem is fixed.
+
+## At-least-once means: make consumers idempotent
+
+Because an event can arrive twice, handling it twice must be harmless. Common ways:
+
+- Store the processed **event ID** in a table with a unique constraint, and skip events you've already seen.
+- Make the operation naturally idempotent: "set status to PAID" is safe to repeat; "add ₹100" is not.
+
+<Callout type="learned">
+  "Exactly once" end to end is really **at-least-once delivery + idempotent processing**. Designing every consumer as if it will see duplicates was the most practical lesson for me.
+</Callout>
+
+## The dual-write problem and the outbox pattern
+
+Look at this innocent-looking code:
+
+```java
+@Transactional
+public Booking book(BookingRequest req) {
+    Booking booking = bookingRepository.save(Booking.from(req)); // 1. write to MySQL
+    publisher.publish(RideBooked.from(booking));                 // 2. write to Kafka
+    return booking;
+}
+```
+
+Two systems, no shared transaction:
+
+- If Kafka is down, the booking is saved but **nobody is notified**.
+- If the event is sent and then the DB transaction rolls back, consumers react to a booking that **doesn't exist**.
+
+The **transactional outbox** fixes this by writing the event to the *same database* in the *same transaction*:
+
+<Flow steps={['@Transactional: save booking + outbox row', 'Relay reads outbox', 'Publish to Kafka', 'Mark row sent']} highlight={0} />
+
+```java
+@Transactional
+public Booking book(BookingRequest req) {
+    Booking booking = bookingRepository.save(Booking.from(req));
+    outboxRepository.save(OutboxEvent.of("ride-booked", booking.getId().toString(), RideBooked.from(booking)));
+    return booking; // both rows commit together, or neither does
+}
+```
+
+A separate relay publishes outbox rows to Kafka. That can be a scheduled poller, or a change-data-capture tool like Debezium that reads the MySQL binlog. The relay may publish an event twice, which is fine because the consumers are idempotent.
+
+## When Kafka is the wrong tool
+
+- You need an **immediate answer** ("is this seat free?"): use a synchronous API.
+- A **small app** with one or two services: an in-process event or a simple queue is cheaper to run.
+- You need **per-message routing rules** and priorities more than throughput and replay: a classic message broker like RabbitMQ may fit better.
+
+## Summary
+
+- Topics hold **facts**; partitions give **order (per key)** and **parallelism**.
+- Consumer groups scale reading; **partition count caps** parallelism.
+- Delivery is **at-least-once**: make consumers **idempotent**.
+- Handle poison messages with **retries + a dead-letter topic**.
+- Don't dual-write: use the **outbox pattern** to keep the database and Kafka consistent.
