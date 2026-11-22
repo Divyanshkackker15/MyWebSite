@@ -1,188 +1,92 @@
 # kackkerdivyansh.in
 
-Portfolio and blog of **Divyansh Kackker**, Java Backend Developer · Spring Boot Microservices Enthusiast.
+Personal site and writing of **Divyansh Kackker**, Java backend developer.
 
-React · Vite · TypeScript · Tailwind CSS · Framer Motion · Lenis · GSAP ScrollTrigger · React Three Fiber · React Router · MDX.
-Fully static: every page is pre-rendered to HTML at build time and hosted on Cloudflare Pages.
+React · Vite · TypeScript · Tailwind CSS · React Three Fiber · Lenis · MDX. Every page is pre-rendered to static HTML and served by Cloudflare Workers; a small Worker handles the contact form.
 
 ---
 
-## 1. Run it
+## Run it
 
 Requires **Node.js 20+** (22 recommended).
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173 with hot reload
-npm run build      # production build + pre-render + OG images → dist/
-npm run preview    # serve dist/ exactly like Cloudflare does → http://localhost:4173
-npm run typecheck  # TypeScript check
+npm run build      # production build + pre-render + social preview images → dist/
+npm run preview    # serve dist/ locally → http://localhost:4173
+npm run typecheck
 ```
 
-## 2. Before going live: fill these in
+To try the contact form locally, copy `.dev.vars.example` to `.dev.vars`, add a Resend API key, then run `npm run build && npx wrangler dev`. `.dev.vars` is git-ignored.
 
-Everything below is a placeholder on purpose. Nothing was invented, and empty links are hidden automatically.
+## Write a new article
 
-| What | Where |
-| --- | --- |
-| LinkedIn, GitHub, LeetCode URLs | `src/data/profile.ts` → `links` |
-| GoCruze and Votezy repo URLs (and live demos) | `src/data/projects.ts` → `github`, `live` |
-| Infosys and AICTE certificate links | `src/data/experience.ts` → `certificate` |
-| Contact form | Create a free form at formspree.io, put its id in `.env` as `VITE_FORMSPREE_ID=...` (and in Cloudflare → Settings → Environment variables) |
-| Résumé | `public/resume.pdf` (currently the PDF you shared; it includes your phone number) |
-| Blog post dates | `date:` in each `src/content/blog/*.mdx` (all set to the launch date) |
-| Freelance services and the 4-phase process copy | `src/data/services.ts` (draft wording, edit freely) |
-
-The phone number is deliberately **not** on the site.
-
-## 3. Editing content
-
-All text about you lives in `src/data/`. Components only read from there.
-
-| File | Controls |
-| --- | --- |
-| `profile.ts` | name, title, summary, email, links, availability, the 4 stat counters |
-| `journey.ts` | Java → Spring Boot → Microservices → System Design timeline |
-| `skills.ts` | the six skill cards |
-| `projects.ts` | GoCruze and Votezy case studies, including the request-flow diagram steps |
-| `experience.ts` | Infosys Springboard and AICTE IDEA Lab |
-| `education.ts` | B.Tech, Class XII, Class X |
-| `services.ts` | "What I can help with" list + Discover / Design / Build / Launch phases |
-| `sections.ts` | order and labels of home sections (drives the `[ 04 / 10 ]` counters and the data bus) |
-
-Colours and fonts are design tokens at the top of `src/main.css` (`@theme { … }`).
-
-## 4. Adding a blog post (one file)
-
-Create `src/content/blog/my-new-post.mdx`. The file name becomes the URL (`/blog/my-new-post`).
+Create one file: `src/content/blog/my-new-post.mdx`. The file name becomes the URL (`/blog/my-new-post`).
 
 ~~~mdx
 ---
 title: "My new post"
-excerpt: "One or two sentences shown on cards, in search results and in the LinkedIn preview."
+excerpt: "One or two sentences for cards, search results and the LinkedIn preview."
 date: 2026-12-01
-category: Spring Boot        # creates a new category tab automatically if it's new
+category: Spring Boot        # one of src/data/categories.ts
 tags: [spring-boot, testing]
-cover: mesh                  # mesh | shield | locks | index | stream | containers | balancer | neural
-featured: false              # true = big card at the top of /blog (only one post should be featured)
+featured: false              # true = the big panel on /blog and the home page (only one post)
+cover: /images/my-cover.webp # optional; without it a studio render in the category's light is used
 ---
 
 Intro paragraph…
 
-## A heading (appears in the table of contents)
+## A heading (shows in "On this page")
 
 ```java
-// code blocks are highlighted at build time and get a copy button
+// highlighted at build time, with a copy button
 ```
 
-<Callout type="tip">Also available: note, warn, learned</Callout>
+<Callout type="tip">Also: note, warn, learned</Callout>
 <Flow steps={['Client', 'API', 'Database']} caption="A simple diagram" highlight={1} />
 <Layers items={[{ name: 'Controller', note: 'HTTP' }, { name: 'Service', note: 'logic' }]} />
 <Compare left={{ title: 'Before', points: ['…'] }} right={{ title: 'After', points: ['…'] }} />
 ~~~
 
-That's all. On the next build the post gets: its page, a card on `/blog` and on the home page, search and filtering, reading time, table of contents, a generated cover, a sitemap entry and its own LinkedIn/OG preview image.
+Commit and push. The next build adds the page, its panel on `/blog` and the home page, the archive entry, related articles, reading time, the sitemap entry and its own preview image.
 
-## 5. The photo
+**Categories** live in `src/data/categories.ts`: rename, add or reorder them there. Each has a `light` (volt, violet, magenta or emerald) that colours its cover render.
 
-`scripts/photo/process_headshot.py` (`npm run photo`, needs `pip install numpy scipy pillow`) turns `assets-src/headshot-original.webp` into:
+## Edit content
 
-- `public/images/portrait-desktop|mobile.(webp|png)`: background removed, gentle grade, amber/cyan rim light
-- `public/images/avatar-256|512.(webp|png)`: circular avatar with an amber ring
-- `public/favicon*.png`, `favicon.ico`, `apple-touch-icon.png`, `icon-192/512.png`
+| File | Controls |
+| --- | --- |
+| `src/data/profile.ts` | name, email, LinkedIn/GitHub links, "Previously", résumé link |
+| `src/data/projects.ts` | the Work section (name, one line, stack, links) |
+| `src/data/categories.ts` | writing categories and their light colours |
+| `public/resume.pdf` | the résumé linked from the site |
 
-Background removal uses a colour-unmixing key: on a white backdrop we can solve `observed = α·subject + (1−α)·white` per pixel, which keeps hair strands and removes the white halo. The face is never reshaped or smoothed.
+Empty links are hidden automatically. Colours and type sizes are tokens at the top of `src/main.css`.
 
----
+## How it works
 
-## 6. Architecture (for interviews)
-
-```
-                 build time (npm run build)                               runtime (browser)
-┌──────────────────────────────────────────────────────────┐     ┌──────────────────────────────┐
-│ src/data/*.ts ─┐                                          │     │ static HTML (already full)   │
-│ content/*.mdx ─┼─► Vite (client bundle, code-split)  ───► │ ──► │   → hydrateRoot() attaches   │
-│ posts-index ───┘   Vite (SSR bundle) ─► prerender.mjs     │     │     React to it              │
-│                       renders every route to .html        │     │   → Lenis, cursor, motion    │
-│                    og-images.mjs ─► 1200×630 PNG per page │     │   → 3D mesh lazy (desktop)   │
-└──────────────────────────────────────────────────────────┘     └──────────────────────────────┘
-```
-
-**Why pre-render a React app?** LinkedIn, WhatsApp and many crawlers don't run JavaScript. A normal single-page app sends them an empty `<div id="root">`, so shared links show no title or image. `scripts/prerender.mjs` renders each route with React's `prerenderToNodeStream` at build time and writes the HTML plus that page's `<title>`, description, canonical URL, Open Graph tags and JSON-LD. The browser then *hydrates* that HTML instead of building it from scratch, which also makes first paint faster.
-
-**One source of truth for SEO.** `src/lib/seo.ts → getMeta(path)` is used by the pre-renderer (static tags) and by `useDocumentMeta()` in the browser (tags update on client-side navigation).
-
-**Blog without a backend.** A tiny Vite plugin (`plugins/posts-index.ts`) reads every post's front-matter at build time, computes reading time and extracts headings for the table of contents, and exposes the list as `virtual:posts`. The list is small and loads with the app; each article body is its own lazily-loaded chunk. MDX compiles posts to React components; Shiki highlights code at build time, so there's no highlighting JavaScript in the browser.
-
-**Code splitting with preloading.** Each page is a separate chunk (`src/routes.tsx`). `lazyPage()` lets `entry-client.tsx` *await the current page's chunk before hydrating*, so the pre-rendered HTML is never replaced by a loading state. Other pages are prefetched when the browser is idle.
-
-**Motion system.**
-- *Lenis* (`SmoothScroll.tsx`) smooths wheel scrolling; touch devices keep native scrolling; it's off for reduced motion.
-- *Framer Motion* via `LazyMotion`: components use light `m.*` elements, and the animation engine loads in a separate chunk after first paint. `MotionConfig reducedMotion="user"` removes movement for people who ask for less motion.
-- *GSAP ScrollTrigger* is used once, for the pinned, scroll-scrubbed Journey timeline, and is downloaded **only on desktop**.
-- *React Three Fiber* draws the hero "service mesh" (nodes = services, packets = requests). It's lazy-loaded only on desktop with a mouse, after the browser is idle, and pauses rendering when off-screen. Phones and reduced-motion visitors get a static SVG of the same network (`meshData.ts` is shared).
-- The *data bus* (`DataBus.tsx`) is the connector across sections: a rail with a packet driven by scroll progress, and one node per section placed at that section's real scroll position.
-- Custom cursor and magnetic buttons only run on `(hover: hover) and (pointer: fine)` devices.
-
-**Content as data → ready for a Spring Boot API.** Components never hard-code content. Replacing `src/data/projects.ts` with `fetch('/api/projects')` returning the same JSON shape is a one-file change.
-
-**Contact form without a server.** `Contact.tsx` posts `FormData` to Formspree with client-side validation and a honeypot field for spam.
-
-### Folder structure
+- **Pre-rendering.** `scripts/prerender.mjs` renders every route with React at build time and writes static HTML with its own title, description, Open Graph tags and JSON-LD, so LinkedIn and search engines see full pages. The browser then hydrates that HTML.
+- **Opening sequence.** Pure CSS (`main.css` → "Opening sequence"), so it starts at first paint. It plays once per browser tab and never for visitors who prefer reduced motion.
+- **The 3D object.** `src/components/three/Liquid.tsx`: a torus whose surface is moved by noise in the vertex shader, in almost-black clearcoated metal that reflects a small virtual studio. It runs live only on desktop with a mouse and WebGL2, loads after the page is idle, and stops rendering off-screen. Everyone else sees still renders of the same scene.
+- **Still renders.** `npm run renders` (with `npm run dev` running) re-creates the article covers, project visuals and hero posters in `public/images/`. Run it only if you change the object.
+- **Motion.** CSS transitions plus one IntersectionObserver (`useReveal`) for reveals; small scroll handlers for the word-by-word About text and the sideways Writing row; Lenis for smooth wheel scrolling; the View Transitions API between pages. No animation library.
+- **Contact form.** `Contact.tsx` → `POST /api/contact` → `worker/index.ts` validates the message, drops spam (hidden field, too-fast submits, per-IP limit) and sends it through Resend with `Reply-To` set to the visitor. The email layout is `worker/email.ts`. The API key is a Cloudflare secret and never appears in the code.
 
 ```
-├─ index.html                 shell; <!--app-head--> / <!--app-html--> are filled by the pre-renderer
-├─ vite.config.ts             MDX + Shiki + Tailwind + posts-index plugin
-├─ plugins/posts-index.ts     front-matter → virtual:posts
-├─ scripts/
-│  ├─ prerender.mjs           routes → static .html, sitemap.xml, robots.txt
-│  ├─ og-images.mjs           OG preview PNGs (satori + resvg)
-│  ├─ serve-dist.mjs          local production server (npm run preview)
-│  └─ photo/process_headshot.py
-├─ public/                    images, favicons, résumé, _headers (Cloudflare), site.webmanifest
+├─ index.html              shell; the pre-renderer fills <!--app-head--> and <!--app-html-->
+├─ wrangler.jsonc          Cloudflare Workers: static files in dist/ + the contact Worker
+├─ worker/                 index.ts (POST /api/contact), email.ts (the email you receive)
+├─ plugins/posts-index.ts  article front-matter → virtual:posts
+├─ scripts/                prerender, og-images, renders/, favicons, photo/
+├─ public/                 images, renders, favicons, résumé, _headers
 └─ src/
-   ├─ entry-client.tsx        browser: preload route → hydrate
-   ├─ entry-server.tsx        build: render(url) for the pre-renderer
-   ├─ App.tsx  routes.tsx     shell, page transitions, lazy pages
-   ├─ data/                   ← all editable content
-   ├─ content/blog/*.mdx      ← the 8 posts
-   ├─ components/
-   │  ├─ layout/              Nav, Footer, Preloader, Page (transition), SectionLink
-   │  ├─ motion/              SmoothScroll, Cursor, Magnetic, Reveal, WordReveal, CountUp, DataBus
-   │  ├─ three/               ServiceMesh (R3F), HeroMesh (lazy loader + SVG fallback), meshData
-   │  ├─ sections/            Hero, About, Journey, Skills, Projects, Experience, Available, Process, Education, BlogPreview, Contact
-   │  ├─ blog/                PostCard, PostCover, Toc, CodeBlock, Diagrams, AuthorBox, ShareBar
-   │  └─ ui/                  Button, Portrait, Socials, CopyEmail, BrandIcon, SectionHeader
-   ├─ hooks/                  useMedia (pointer / reduced motion), useDocumentMeta
-   └─ lib/                    posts, seo, lazyPage, motionFeatures
+   ├─ data/                profile, projects, categories
+   ├─ content/blog/*.mdx   articles
+   ├─ components/home/     Intro, Hero, About, Writing, Work, Contact
+   ├─ components/blog/     PostPanel, Toc, CodeBlock, Diagrams
+   ├─ components/three/    Liquid (the object), HeroCanvas
+   ├─ components/motion/   SmoothScroll, ScrollWords, HorizontalTrack
+   ├─ components/layout/   Nav, Footer, TLink (page transitions)
+   └─ pages/               Home, Blog, Post, NotFound
 ```
-
-### Questions you might get, and short answers
-
-- **"Why not Next.js?"** The brief asked for React + Vite. Pre-rendering with ~50 lines (`prerender.mjs`) gives the SEO benefit of static generation while staying a plain Vite app.
-- **"How do you keep animations at 60 fps?"** Only `transform` and `opacity` are animated; scroll effects read motion values instead of React state, so nothing re-renders per frame; the 3D scene uses instanced meshes (2 draw calls for all packets) and stops rendering off-screen.
-- **"How is accessibility handled?"** Semantic landmarks and headings, skip link, visible focus styles, alt text, `prefers-reduced-motion` support, no custom cursor on touch devices, and dimmed "scroll-lit" text that still meets WCAG AA contrast before it lights up.
-- **"What happens without JavaScript?"** The full content is in the HTML. Only the animations are missing.
-
-## 7. Quality checks (local Lighthouse 12, production build with compression)
-
-| Page | Mobile perf / a11y / best practices / SEO | Desktop perf / a11y / best practices / SEO |
-| --- | --- | --- |
-| `/` | 80 / 100 / 100 / 100 | 98 / 100 / 100 / 100 |
-| `/blog` | 91 / 100 / 100 / 100 | 98 / 100 / 100 / 100 |
-| `/blog/<post>` | 87–91 / 100 / 100 / 100 | 98 / 100 / 100 / 100 |
-
-The home page on simulated slow 4G stays around 80 because it hydrates a long, animation-heavy page (React + Router + Framer Motion ≈ 130 KB gzip). Unthrottled, it paints in about 0.3 s. Ways to push it past 90 are listed in Future upgrades.
-
----
-
-## 8. Future upgrades
-
-1. **Spring Boot content API**: move `src/data` and the blog into a Spring Boot + MySQL service with an admin panel (Spring Security, JWT). The site fetches at build time (still static) or at runtime.
-2. **"Ask about me" chatbot**: a Spring AI endpoint with RAG over the résumé, project write-ups and blog posts (see the Spring AI post).
-3. **Analytics**: Cloudflare Web Analytics (free, cookie-less); one script tag.
-4. **Newsletter / RSS**: generate `rss.xml` in `prerender.mjs`.
-5. **Mobile performance 90+ on home**: hydrate below-the-fold sections lazily ("islands"), or replace Framer Motion on phones with CSS-only reveals.
-6. **Project screenshots or short videos** in the case studies when available.
-7. **Dark/light theme toggle** (all colours are already tokens).
-8. **Comments on posts** via giscus (GitHub Discussions).
