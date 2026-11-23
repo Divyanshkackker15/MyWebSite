@@ -36,7 +36,7 @@ export function getMeta(pathname: string): PageMeta {
   }
   if (path === '/blog') {
     return {
-      title: `Writing · ${profile.name}`,
+      title: `Blog · ${profile.name}`,
       description:
         'Notes from the backend: what I build, break and learn with Java, Spring Boot, databases and system design.',
       path: '/blog',

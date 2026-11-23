@@ -15,7 +15,7 @@ export const profile = {
   resumeUrl: asset('resume.pdf'),
   links: {
     linkedin: 'https://www.linkedin.com/in/kackkerdivyansh1115/',
-    github: '', // e.g. 'https://github.com/your-handle'
+    github: 'https://github.com/Divyanshkackker15',
   },
   /** one line, shown small in About */
   previously: [

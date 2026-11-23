@@ -1,7 +1,6 @@
 /* Self-hosted, open-licence fonts (SIL OFL); nothing is requested from Google at runtime */
 @import '@fontsource-variable/inter/opsz.css';
 @import '@fontsource-variable/geist-mono/wght.css';
-
 @import 'tailwindcss';
 
 /* ------------------------------------------------------------------
@@ -586,3 +585,192 @@ html.intro-skip .intro { display: none; }
   .bracket--tl, .bracket--bl { left: -8px; }
   .bracket--tr, .bracket--br { right: -8px; }
 }
+
+/* ------------------------------------------------------------------
+   The blog (home): a deck of cards, from the Figma riff "Card shuffle".
+   Riff tokens: bg #0A0A0A, text #EDEDED, faded #949494; card gradients
+   at 144deg; 2px hairline rgba(237,237,237,.14); radius 56/720 of the
+   card width; depth = scale, blur and a black tint, never a shadow.
+   Card sizes are in container units so the 1080-frame ratios hold.
+------------------------------------------------------------------- */
+.blog { --riff-bg: #0a0a0a; --riff-tx: #ededed; --riff-fa: #949494; }
+.blog__glow {
+  position: absolute;
+  width: min(900px, 80vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.2;
+}
+.blog__glow--a { top: -12%; left: -18%; background: radial-gradient(closest-side, #8b6cf0, transparent); }
+.blog__glow--b { bottom: -22%; right: -16%; background: radial-gradient(closest-side, #f5a524, transparent); opacity: 0.12; }
+.blog__eyebrow {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--riff-fa);
+}
+.blog__title {
+  font-size: clamp(1.875rem, 3.4vw, 3.25rem);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--riff-tx);
+}
+
+/* the deck */
+.deck { --w: min(100%, 22rem); outline-offset: 12px; }
+@media (min-width: 640px) { .deck { --w: min(100%, 27rem); } }
+@media (min-width: 1024px) { .deck { --w: min(100%, 30rem); } }
+.deck__stage {
+  display: grid;
+  justify-items: center;
+  padding-top: calc(var(--w) * 0.34);
+  touch-action: pan-y;
+}
+.deck__card {
+  grid-area: 1 / 1;
+  position: relative;
+  width: var(--w);
+  aspect-ratio: 720 / 900;
+  container-type: inline-size;
+  border-radius: 7.8cqi;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(144deg, var(--from) 2%, var(--to) 98%);
+  border: 1.5px solid rgba(237, 237, 237, 0.14);
+  color: var(--ink);
+  transform-origin: 50% 0;
+  transform: translate3d(var(--dx, 0px), calc(var(--y) + var(--hy, 0%)), 0) rotate(calc(var(--r) + var(--dr, 0deg))) scale(var(--s));
+  opacity: var(--o);
+  filter: blur(var(--b));
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    transform 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) 0.14s,
+    opacity 0.5s var(--ease-out) 0.14s,
+    filter 0.6s var(--ease-out) 0.14s;
+}
+.deck__card.is-dark { --ink: #0a0a0a; --chip-bg: rgba(10, 10, 10, 0.16); --chip-line: rgba(10, 10, 10, 0.4); --sub: rgba(10, 10, 10, 0.8); }
+.deck__card.is-light { --ink: #ededed; --chip-bg: rgba(237, 237, 237, 0.16); --chip-line: rgba(237, 237, 237, 0.4); --sub: rgba(237, 237, 237, 0.8); }
+/* gloss over the top of the card, and the depth tint over everything */
+.deck__card::before {
+  content: '';
+  position: absolute; inset: 0 0 auto 0; height: 48%;
+  background: linear-gradient(180deg, rgba(237, 237, 237, 0.3), rgba(237, 237, 237, 0));
+  pointer-events: none;
+  z-index: 0;
+}
+.deck__card::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: #000;
+  opacity: var(--t);
+  pointer-events: none;
+  transition: opacity 0.6s var(--ease-out) 0.14s;
+  z-index: 3;
+}
+.deck__card[data-dragging], .deck__card[data-flying] { transition: none; }
+/* the outgoing card stays above the stack while it flies off */
+.deck__card[data-flying] { z-index: 50 !important; }
+.deck__card.is-top { cursor: grab; }
+.deck__card[data-dragging] { cursor: grabbing; }
+.deck:hover .deck__card.is-top:not([data-dragging]) { --hy: -1.6%; }
+.deck:hover .deck__card:not(.is-top) { --hy: -2.2%; }
+
+.deck__link { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 4cqi; height: 100%; padding: 7cqi; outline: none; -webkit-user-drag: none; }
+.deck__link:focus-visible { outline: 1.5px solid var(--ink); outline-offset: -4cqi; border-radius: 5cqi; }
+.deck__rings { position: absolute; inset: 0; pointer-events: none; z-index: -1; }
+.deck__rings::before, .deck__rings::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink);
+  opacity: 0.14;
+}
+.deck__rings::before { width: 55cqi; aspect-ratio: 1; right: -14cqi; bottom: -14cqi; }
+.deck__rings::after { width: 83cqi; aspect-ratio: 1; right: -28cqi; bottom: -28cqi; }
+.deck__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 4cqi; }
+.deck__num { font-size: 16cqi; font-weight: 300; letter-spacing: -0.06em; line-height: 0.78; margin-left: -0.6cqi; }
+.deck__chip {
+  display: inline-flex; align-items: center;
+  height: 7.4cqi; padding: 0 3.6cqi;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-line);
+  font-size: max(0.6875rem, 2.9cqi);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.deck__image {
+  display: block;
+  aspect-ratio: 16 / 10;
+  border-radius: 4.4cqi;
+  overflow: hidden;
+  border: 1px solid rgba(237, 237, 237, 0.14);
+  background: #0a0a0a;
+}
+.deck__image img { transition: transform 1.4s var(--ease-out); -webkit-user-drag: none; pointer-events: none; }
+.deck__card.is-top:hover .deck__image img { transform: scale(1.04); }
+.deck__foot { margin-top: auto; display: flex; align-items: flex-end; gap: 4cqi; }
+.deck__meta { display: block; font-family: var(--font-mono); font-size: max(0.625rem, 2.4cqi); letter-spacing: 0.08em; text-transform: uppercase; color: var(--sub); }
+.deck__title {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+  margin-top: 1.8cqi;
+  font-size: 5.6cqi; line-height: 1.08; letter-spacing: -0.03em; font-weight: 500;
+}
+.deck__sub {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  margin-top: 2cqi;
+  font-size: max(0.8125rem, 3cqi); line-height: 1.35; color: var(--sub);
+}
+.deck__go {
+  flex: none;
+  display: grid; place-items: center;
+  width: 10.5cqi; aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-line);
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.4s;
+}
+.deck__go svg { width: 3.4cqi; height: auto; }
+.deck__card.is-top:hover .deck__go { transform: translateX(1.2cqi) rotate(-8deg); }
+
+.deck__controls { display: flex; align-items: center; justify-content: center; gap: 1.5rem; margin-top: 2.5rem; }
+.deck__btn {
+  display: grid; place-items: center;
+  width: 3rem; height: 3rem;
+  border-radius: 50%;
+  border: 1px solid rgba(237, 237, 237, 0.14);
+  color: var(--color-white);
+  transition: background-color 0.4s var(--ease-out), color 0.4s var(--ease-out), border-color 0.4s, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.deck__btn:hover { background: #ededed; color: #0a0a0a; border-color: #ededed; }
+.deck__btn:active { transform: scale(0.92); }
+.deck__dots { display: flex; gap: 0.25rem; }
+.deck__dot { display: grid; place-items: center; width: 1.25rem; height: 1.75rem; }
+.deck__dot::before {
+  content: '';
+  width: 0.5rem; height: 0.5rem; border-radius: 50%;
+  background: rgba(237, 237, 237, 0.3);
+  transition: background-color 0.45s var(--ease-out), transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.deck__dot:hover::before { background: rgba(237, 237, 237, 0.6); }
+.deck__dot[aria-current]::before { background: #ededed; transform: scale(1.25); }
+
+/* dealt in once when the deck first scrolls into view (JS only) */
+@media (prefers-reduced-motion: no-preference) {
+  .js .deck[data-deal='idle'] .deck__card { --y: 0% !important; --r: 0deg !important; --s: 0.94 !important; --o: 0 !important; }
+  .js .deck[data-deal='dealing'] .deck__card { transition-delay: calc(0.25s + (5 - min(var(--depth), 5)) * 0.08s); }
+  .blog__glow--a { animation: blog-drift-a 8s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate; }
+  .blog__glow--b { animation: blog-drift-b 8s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate; }
+}
+@keyframes blog-drift-a { to { transform: translate3d(120px, 80px, 0); } }
+@keyframes blog-drift-b { to { transform: translate3d(-140px, -100px, 0); } }
+@media (prefers-reduced-motion: reduce) {
+  .deck__card { filter: none; }
+}
+
+/* the D signature in the nav */
+.nav__sig { font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 2.25rem; line-height: 1; }
