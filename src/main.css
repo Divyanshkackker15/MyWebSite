@@ -806,17 +806,6 @@ html.intro-skip .intro { display: none; }
 /* the D signature in the nav */
 .nav__sig { font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 2.25rem; line-height: 1; }
 
-/* About: the stack as small chips */
-.about__chip {
-  display: inline-flex; align-items: center; gap: 0.5rem;
-  padding: 0.45rem 0.8rem 0.45rem 0.65rem;
-  border: 1px solid var(--color-line-2); border-radius: 999px;
-  color: #cfcfcf; font-size: 0.875rem;
-  transition: border-color 0.4s var(--ease-out), color 0.4s var(--ease-out), transform 0.5s var(--ease-out);
-}
-.about__chip svg { color: var(--color-grey); transition: color 0.4s; }
-.about__chip:hover { border-color: #4a4a4a; color: var(--color-white); transform: translateY(-2px); }
-.about__chip:hover svg { color: var(--color-white); }
 
 /* Contact: Elsewhere as small glass cards, edged with the blog deck's gradients */
 .social-card {
@@ -857,14 +846,6 @@ html[data-theme='light'] .hero__line { color: #2a2a2a; }
 html[data-theme='light'] .intro__line { background: linear-gradient(90deg, transparent, rgba(20, 20, 20, 0.5) 30%, rgba(20, 20, 20, 0.5) 70%, transparent); }
 html[data-theme='light'] .word-chip { background: #fff; }
 html[data-theme='light'] .prose-dk { color: #2e2e2e; }
-html[data-theme='light'] .ba__frame { background: var(--color-black); }
-/* the starfield is drawn white on black; inverted it becomes ink on paper */
-html[data-theme='light'] .ba__frame .starfield { filter: invert(1); mix-blend-mode: multiply; }
-html[data-theme='light'] .ba__word--before { background-image: linear-gradient(180deg, #141414, #6a6a6a); }
-html[data-theme='light'] .ba__slash { color: #333; }
-html[data-theme='light'] .ba-card { border-color: var(--color-line-2); background: rgba(255, 255, 255, 0.86); }
-html[data-theme='light'] .ba-card--after { background: radial-gradient(70% 60% at 85% 10%, rgba(240, 74, 74, 0.14), transparent 70%), rgba(255, 255, 255, 0.9); }
-html[data-theme='light'] .ba-card__body { color: #4a4a4a; }
 html[data-theme='light'] .process__shell, html[data-theme='light'] .process__list, html[data-theme='light'] .process__stage { border-color: var(--color-line); }
 html[data-theme='light'] .process__list { background: #fff; }
 html[data-theme='light'] .process__stage { background: var(--color-coal-2); }
@@ -880,8 +861,6 @@ html[data-theme='light'] .deck__btn:hover { background: #141414; color: #f4f3ef;
 html[data-theme='light'] .deck__dot::before { background: rgba(20, 20, 20, 0.22); }
 html[data-theme='light'] .deck__dot:hover::before { background: rgba(20, 20, 20, 0.5); }
 html[data-theme='light'] .deck__dot[aria-current]::before { background: #141414; }
-html[data-theme='light'] .about__chip { color: #333; }
-html[data-theme='light'] .about__chip:hover { border-color: #9a9a9a; }
 html[data-theme='light'] .social-card { background: rgba(255, 255, 255, 0.6); border-color: rgba(20, 20, 20, 0.1); }
 html[data-theme='light'] .social-card:hover { background: rgba(255, 255, 255, 0.9); border-color: rgba(20, 20, 20, 0.2); }
 
@@ -1064,8 +1043,6 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
 .social-card__img.is-tile img { width: 72%; height: 72%; }
 .social-card:hover .social-card__img img { transform: scale(1.08) rotate(-4deg); }
 
-.about__icon3d { width: 20px; height: 20px; object-fit: contain; margin: -2px 0; transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.about__chip:hover .about__icon3d { transform: scale(1.15) rotate(-6deg); }
 
 /* Parallax header (components/ui/parallax-scrolling.tsx) */
 .parallax__header { position: relative; height: 100svh; min-height: 34rem; }
@@ -1076,3 +1053,122 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
 .parallax__title { font-size: clamp(3rem, 12vw, 11rem); line-height: 0.9; letter-spacing: -0.05em; font-weight: 450; color: var(--color-white); text-align: center; }
 .parallax__fade { position: absolute; inset: auto 0 0; height: 25%; background: linear-gradient(to top, var(--color-black), transparent); }
 .parallax__content { position: relative; display: grid; place-items: center; padding: 10vh 1rem; background: var(--color-black); }
+
+/* Before / After is a night scene: it keeps its original dark palette in both
+   themes, so the starfield, the ring and the red After read exactly as designed */
+html[data-theme='light'] .ba {
+  color-scheme: dark;
+  --color-black: #000000; --color-coal: #111111; --color-coal-2: #161616;
+  --color-line: #1f1f1f; --color-line-2: #2a2a2a;
+  --color-white: #f5f5f5; --color-grey: #8a8a8a; --color-mute: #777777;
+  background: #000; color: var(--color-white);
+}
+
+/* ------------------------------------------------------------------
+   About (About.tsx): liquid-metal lead over the site's chrome render
+------------------------------------------------------------------- */
+.about__metal {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  display: grid; place-items: center;
+  -webkit-mask-image: radial-gradient(60% 55% at 50% 38%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(60% 55% at 50% 38%, #000 30%, transparent 75%);
+}
+.about__metal img { width: min(1400px, 140vw); max-width: none; opacity: 0.42; mix-blend-mode: screen; transform: translateY(-12%); }
+@media (prefers-reduced-motion: no-preference) {
+  .about__metal img { animation: metal-drift 18s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate; }
+}
+@keyframes metal-drift { from { transform: translateY(-12%) scale(1) rotate(-2deg); } to { transform: translateY(-9%) scale(1.06) rotate(2deg); } }
+html[data-theme='light'] .about__metal img { mix-blend-mode: multiply; opacity: 0.1; filter: grayscale(1) contrast(1.2); }
+
+.about__lead {
+  max-width: 16ch;
+  font-size: clamp(2.6rem, 6.4vw, 6.25rem);
+  line-height: 0.98; letter-spacing: -0.045em; font-weight: 450;
+}
+/* chrome: bright and dark bands sliding slowly across the letters */
+.metal-text {
+  background: linear-gradient(100deg, #8d8d8d 0%, #f7f7f7 16%, #9b9b9b 30%, #ffffff 44%, #7c7c7c 58%, #e6e6e6 74%, #8a8a8a 88%, #f2f2f2 100%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.06));
+}
+html[data-theme='light'] .metal-text {
+  background-image: linear-gradient(100deg, #1a1a1a 0%, #6d6d6d 16%, #222 30%, #8c8c8c 44%, #161616 58%, #5e5e5e 74%, #1f1f1f 88%, #707070 100%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .metal-text { animation: metal-sheen 11s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate; }
+}
+@keyframes metal-sheen { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+
+.about__intro {
+  max-width: 30ch;
+  font-size: clamp(1.45rem, 2.7vw, 2.4rem);
+  line-height: 1.22; letter-spacing: -0.025em; font-weight: 450;
+  color: var(--color-white);
+}
+.about__aside { max-width: 44ch; font-size: clamp(1.05rem, 1.3vw, 1.2rem); line-height: 1.6; color: var(--color-grey); }
+.about__rule { width: min(18rem, 50%); height: 1px; margin-top: clamp(3.5rem, 8vh, 5.5rem); margin-bottom: clamp(3rem, 7vh, 4.5rem); background: linear-gradient(90deg, transparent, var(--color-line-2), transparent); }
+.about__body { max-width: 58ch; font-size: 1.125rem; line-height: 1.75; color: var(--color-grey); }
+
+/* ------------------------------------------------------------------
+   Skills (Skills.tsx): groups over a pixel field that lights up under
+   the pointer; names wipe into the group colour in pixel steps
+------------------------------------------------------------------- */
+.skills__title { font-size: clamp(2.2rem, 4.6vw, 4.25rem); line-height: 1; letter-spacing: -0.04em; font-weight: 450; }
+.skills__area { position: relative; isolation: isolate; }
+.skills__field { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.skills__grid { display: grid; gap: 12px; }
+@media (min-width: 768px) { .skills__grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1200px) { .skills__grid { grid-template-columns: repeat(3, 1fr); } }
+/* backend is the core: its top edge stays lit */
+.skills__group.is-core::before { opacity: 1; }
+.skills__group.is-core { border-color: color-mix(in srgb, var(--accent) 28%, var(--color-line)); }
+.skills__group {
+  position: relative;
+  padding: 1.5rem 1.5rem 1.6rem;
+  border-radius: 16px;
+  border: 1px solid var(--color-line);
+  background: color-mix(in srgb, var(--color-coal) 72%, transparent);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  transition: border-color 0.5s var(--ease-out), background-color 0.5s var(--ease-out), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.skills__group::before {
+  content: ''; position: absolute; left: 1.5rem; right: 1.5rem; top: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0; transition: opacity 0.5s var(--ease-out);
+}
+.skills__group:hover, .skills__group:focus-within { border-color: color-mix(in srgb, var(--accent) 35%, var(--color-line)); background: color-mix(in srgb, var(--color-coal) 55%, transparent); }
+.skills__group:hover::before, .skills__group:focus-within::before { opacity: 1; }
+.skills__group.is-core { padding: 1.75rem 1.75rem 1.9rem; }
+.skills__name { font-size: 1.125rem; letter-spacing: -0.01em; color: var(--color-white); }
+.skills__group.is-core .skills__name { font-size: 1.35rem; }
+.skills__num { margin-right: 0.5rem; color: var(--accent); }
+
+.skill {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  height: 2.25rem; padding: 0 0.85rem 0 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-line-2);
+  color: var(--color-white); font-size: 0.875rem;
+  cursor: default; user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.35s, color 0.35s steps(3), transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.skills__group.is-core .skill { height: 2.5rem; font-size: 0.95rem; }
+/* the wipe: accent pixels filling the pill left to right in hard steps */
+.skill__wipe {
+  position: absolute; inset: 0; z-index: -1;
+  background:
+    linear-gradient(90deg, transparent 0 50%, color-mix(in srgb, var(--accent) 80%, transparent) 50%) 0 0 / 6px 6px,
+    var(--accent);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 0.45s steps(8, end);
+}
+.skill__icon { color: var(--color-grey); transition: color 0.3s; }
+.skill__img { width: 18px; height: 18px; object-fit: contain; }
+.skill__pip { width: 5px; height: 5px; background: var(--accent); opacity: 0.8; }
+.skill:hover, .skill:focus-visible, .skill.is-on { border-color: var(--accent); color: #0a0a0a; transform: translateY(-2px); outline: none; }
+.skill:hover .skill__wipe, .skill:focus-visible .skill__wipe, .skill.is-on .skill__wipe { clip-path: inset(0 0 0 0); }
+.skill:hover .skill__icon, .skill:focus-visible .skill__icon, .skill.is-on .skill__icon { color: #0a0a0a; }
+.skill:hover .skill__pip, .skill:focus-visible .skill__pip, .skill.is-on .skill__pip { background: #0a0a0a; }
+@media (prefers-reduced-motion: reduce) { .skill__wipe { transition: none; } }
