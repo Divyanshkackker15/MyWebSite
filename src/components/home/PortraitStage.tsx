@@ -1,12 +1,11 @@
 import { asset } from '../../lib/asset'
 
 /**
- * The portrait as it sits in the hero: black stage, soft coloured light
- * behind the head, a blurred rim glow, the greyscale cutout and the colour
- * cutout on top. The opening sequence renders this same layer inside its
+ * The portrait as it sits in the hero: black stage, soft light behind the
+ * head, the greyscale cutout and the original colour photo on top. The opening sequence renders this same layer inside its
  * small window, so when the window grows to full screen it *is* the hero.
  *
- * Colour comes only from styling: the face itself is the original photo.
+ * The photo itself is never edited.
  */
 export function PortraitStage({ className = '', colourClass = '', mono: withMono = true }: { className?: string; colourClass?: string; mono?: boolean }) {
   const mono = asset('images/me/cut-mono')
@@ -14,7 +13,6 @@ export function PortraitStage({ className = '', colourClass = '', mono: withMono
   return (
     <div className={`stage ${className}`} aria-hidden="true">
       <div className="stage__light" />
-      <img className="stage__rim" src={`${colour}-xs.webp`} alt="" width={181} height={220} decoding="async" />
       {withMono && (
       <picture>
         <source type="image/webp" srcSet={`${mono}-sm.webp`} />

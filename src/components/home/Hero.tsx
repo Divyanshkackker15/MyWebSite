@@ -5,7 +5,7 @@ import { PortraitStage } from './PortraitStage'
 const Particles = lazy(() => import('../motion/Particles'))
 
 /**
- * Hero: the colour portrait on black, a dotted ring drawing around the
+ * Hero: the portrait (original photo) on black, a dotted ring drawing around the
  * head, drifting light particles, and the name set huge on both sides.
  * Everything here animates with CSS from first paint; only the particles
  * need JavaScript, and they load after the page is idle.
@@ -22,7 +22,7 @@ export function Hero() {
 
   return (
     <section aria-label="Introduction" className="hero relative h-[100svh] min-h-[600px] overflow-hidden">
-      <PortraitStage className="hero__stage" colourClass="hero__colour" mono={false} />
+      <PortraitStage className="hero__stage" mono={false} />
 
       {particles && (
         <Suspense fallback={null}>

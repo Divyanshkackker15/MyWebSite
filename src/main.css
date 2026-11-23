@@ -246,11 +246,9 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(30% 36% at 50% 38%, rgba(139, 92, 246, 0.34), transparent 70%),
-    radial-gradient(34% 30% at 30% 66%, rgba(61, 123, 255, 0.2), transparent 70%),
-    radial-gradient(34% 30% at 70% 60%, rgba(224, 64, 154, 0.2), transparent 70%);
+    radial-gradient(30% 38% at 50% 38%, rgba(245, 245, 245, 0.09), transparent 72%);
 }
-.stage__photo, .stage__rim {
+.stage__photo {
   position: absolute;
   left: 50%;
   bottom: 0;
@@ -260,10 +258,6 @@
   translate: -50% 0;
 }
 .stage__photo { z-index: 2; }
-.stage__rim { z-index: 0; filter: blur(26px) saturate(1.7) brightness(1.35); opacity: 0.6; scale: 1.05; transform-origin: 50% 100%; }
-/* the colour wash slowly drifts between blue, violet and magenta */
-.hero__colour { animation: wash 11s ease-in-out infinite alternate; }
-@keyframes wash { from { filter: hue-rotate(-16deg) saturate(1.05); } to { filter: hue-rotate(24deg) saturate(1.2); } }
 
 /* ------------------------------------------------------------------
    Opening sequence (home, first visit per tab). Pure CSS so it starts
@@ -302,7 +296,7 @@
 }
 /* camera: starts pushed in on the face, pulls back as the window grows */
 .intro__stage { transform: scale(1.75); transform-origin: 50% 37%; animation: intro-push 2.3s cubic-bezier(0.55, 0, 0.2, 1) 0.4s forwards; }
-/* colour floods up through the black-and-white portrait as it lands */
+/* real colour rises up through the black-and-white portrait as it lands */
 .intro__colour {
   -webkit-mask-image: linear-gradient(to top, #000 40%, transparent 60%);
   mask-image: linear-gradient(to top, #000 40%, transparent 60%);
@@ -314,7 +308,7 @@
   mask-position: 0 0;
   animation: intro-flood 1.15s var(--ease-in-out) 1.7s forwards;
 }
-.intro__stage .stage__rim, .intro__stage .stage__light { opacity: 0; animation: intro-in 0.8s ease 2.1s forwards; }
+.intro__stage .stage__light { opacity: 0; animation: intro-in 0.8s ease 2.1s forwards; }
 .intro__name {
   position: absolute;
   left: 50%;
@@ -411,7 +405,7 @@ html.intro-skip .intro { display: none; }
   .js [data-reveal], .js [data-reveal='clip'], .js [data-reveal='clip'] > *, .js .rise > .line-mask > span { opacity: 1; transform: none; clip-path: none; }
   .js .scroll-word { opacity: 1 !important; }
   .js .word-chip { transform: none !important; }
-  .hero__colour, .hero__ring { animation: none; }
+  .hero__ring { animation: none; }
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
 

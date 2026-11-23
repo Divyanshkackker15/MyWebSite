@@ -1,16 +1,16 @@
 """Portrait assets for the opening, hero, author box, favicon and OG image.
 
 Input: assets-src/headshot-cutout-full.png (background already removed).
-The face is never reshaped or retouched; only colour, light and background change.
+The photo itself is never edited: the colour version is the original, and the
+greyscale version is only used for the opening sequence.
 
 Outputs (public/images/me/):
   cut-mono-sm.webp / cut-mono.png   greyscale cutout with alpha (opening window)
-  cut-colour.webp / -md / -sm / -xs the same cutout with the colour wash baked in
+  cut-colour.webp / -md / -sm       the original colour cutout
   avatar-256.webp / -512.webp / avatar-512.png   circular author avatar
 public/favicon*.png, favicon.ico, apple-touch-icon.png, icon-192/512.png
-Run: npm run photo   (needs: pip install pillow numpy)
+Run: npm run photo   (needs: pip install pillow)
 """
-import numpy as np
 from PIL import Image, ImageOps, ImageEnhance, ImageFilter, ImageDraw
 
 OUT = 'public/images/me/'
@@ -26,19 +26,8 @@ grey = ImageOps.autocontrast(grey, cutoff=1)
 grey = ImageEnhance.Contrast(grey).enhance(1.12)
 mono = Image.merge('RGBA', (grey, grey, grey, alpha))
 
-# colour wash: luminance kept, hue from a diagonal blue → violet → magenta → red gradient
-stops = np.array([[61, 123, 255], [139, 92, 246], [224, 64, 154], [240, 74, 74]], dtype=np.float32) / 255
-yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
-t = np.clip((xx / w) * 0.65 + (yy / h) * 0.35, 0, 1) * (len(stops) - 1)
-i = np.minimum(t.astype(int), len(stops) - 2)
-f = (t - i)[..., None]
-tint = stops[i] * (1 - f) + stops[i + 1] * f
-L = np.asarray(grey, dtype=np.float32)[..., None] / 255
-# soft-light style mix: shadows take the tint, highlights stay close to white
-colour = np.where(L < 0.5, 2 * L * tint, 1 - 2 * (1 - L) * (1 - tint))
-colour = 0.72 * colour + 0.28 * L  # keep some natural tone
-colour_img = Image.fromarray((np.clip(colour, 0, 1) * 255).astype(np.uint8), 'RGB')
-colour_cut = Image.merge('RGBA', (*colour_img.split(), alpha))
+# the colour version is the original photo, untouched: real skin tones and colours
+colour_cut = cut
 
 
 def save_cut(img, name):
@@ -50,23 +39,7 @@ def save_cut(img, name):
 # the black-and-white cutout only shows inside the small opening window, so one small size is enough
 mono.resize((w // 2, h // 2), Image.LANCZOS).save(OUT + 'cut-mono-sm.webp', 'WEBP', quality=78, method=6)
 save_cut(colour_cut, 'cut-colour')
-# tiny copy for the blurred rim glow behind the portrait (it's blurred anyway)
-colour_cut.resize((w // 6, h // 6), Image.LANCZOS).save(OUT + 'cut-colour-xs.webp', 'WEBP', quality=70, method=6)
 mono.resize((w // 2, h // 2), Image.LANCZOS).save(OUT + 'cut-mono.png', optimize=True)
-
-
-def rim_light(size, subject):
-    """Coloured glow hugging the silhouette, like a neon rim light."""
-    a = subject.split()[3].filter(ImageFilter.GaussianBlur(size[0] / 60))
-    edge = Image.eval(a, lambda v: min(255, int(v * 1.0)))
-    glow = Image.new('RGBA', subject.size, (0, 0, 0, 0))
-    left = Image.new('RGBA', subject.size, (61, 123, 255, 0))
-    right = Image.new('RGBA', subject.size, (224, 64, 154, 0))
-    ramp = Image.linear_gradient('L').rotate(90).resize(subject.size)
-    mix = Image.composite(right, left, ramp)
-    mix.putalpha(edge)
-    glow = Image.alpha_composite(glow, mix)
-    return glow
 
 
 def on_black(subject, W, H, scale=1.0, y_anchor=1.0):
@@ -74,10 +47,6 @@ def on_black(subject, W, H, scale=1.0, y_anchor=1.0):
     s = subject.resize((int(subject.width * W / subject.width * scale), int(subject.height * W / subject.width * scale)), Image.LANCZOS)
     x = (W - s.width) // 2
     y = int((H - s.height) * y_anchor)
-    rim = rim_light((W, H), s)
-    off = W // 90
-    bg.alpha_composite(rim, (x - off, y))
-    bg.alpha_composite(rim, (x + off, y))
     bg.alpha_composite(s, (x, y))
     fade = Image.linear_gradient('L').resize((W, H // 4))  # black → transparent towards the bottom edge
     shade = Image.new('RGBA', (W, H // 4), (0, 0, 0, 255))
@@ -116,5 +85,5 @@ solid.convert('RGB').resize((180, 180), Image.LANCZOS).save('public/apple-touch-
 av.save('public/favicon.ico', sizes=[(16, 16), (32, 32), (48, 48)])
 print('portrait assets written to', OUT)
 
-# vibrant portrait on black, as a small JPEG for the social preview card (satori/resvg read JPEG and PNG)
+# portrait on black, as a small JPEG for the social preview card (satori/resvg read JPEG and PNG)
 still.resize((480, 600), Image.LANCZOS).save(OUT + 'og-portrait.jpg', 'JPEG', quality=86)

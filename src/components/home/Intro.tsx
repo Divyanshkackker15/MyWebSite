@@ -8,7 +8,7 @@ import { PortraitStage } from './PortraitStage'
  *   0.4s  a small window opens on the line, looking at the face (black and white)
  *   0.7s  first and last name rise out from behind the window; labels and a counter appear
  *   1.65s names fade, the window grows to full screen while the camera pulls back,
- *         and colour floods up through the portrait: it lands as the hero itself
+ *         and real colour rises up through the portrait: it lands as the hero itself
  *
  * Pure CSS (main.css → "Opening sequence"), so it starts at first paint.
  * index.html adds .intro-skip when it already played or motion is reduced.
