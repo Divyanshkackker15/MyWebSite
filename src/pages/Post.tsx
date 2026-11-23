@@ -42,7 +42,7 @@ export default function Post() {
       <article className="pb-24">
         <header className="wrap pt-36 md:pt-44">
           <nav aria-label="Breadcrumb" className="mono fade-now flex flex-wrap gap-2 text-grey">
-            <TLink to="/blog" className="link hover:text-white">Writing</TLink>
+            <TLink to="/blog" className="link hover:text-white">Blog</TLink>
             <span aria-hidden="true">/</span>
             <a href={`/blog?category=${encodeURIComponent(meta.category)}`} className="link text-white">{meta.category}</a>
           </nav>

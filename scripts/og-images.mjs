@@ -72,7 +72,7 @@ function homeCard() {
       h('div', {}, 'I build the parts'),
       h('div', { style: { color: '#8A8A8A' } }, 'of software nobody sees.'),
     ),
-    foot('Java backend developer · Writing'),
+    foot('Java backend developer · Blog'),
   )
 }
 
@@ -81,7 +81,7 @@ function postCard({ title, category }) {
   const light = LIGHT[CATEGORY_LIGHT[category] ?? 'volt']
   return frame(
     light,
-    h('div', { style: { gap: 18, alignItems: 'center' } }, mono('Writing'), mono('/'), mono(category ?? 'Notes', '#F5F5F5')),
+    h('div', { style: { gap: 18, alignItems: 'center' } }, mono('Blog'), mono('/'), mono(category ?? 'Notes', '#F5F5F5')),
     h('div', { style: { fontSize: size, fontWeight: 500, lineHeight: 1.02, letterSpacing: -2.6, maxWidth: 1040 } }, title),
     foot('Divyansh Kackker'),
   )
@@ -95,5 +95,5 @@ async function write(name, tree) {
 }
 
 await write('default', homeCard())
-await write('blog', postCard({ title: 'Writing. Notes on Java, Spring Boot, databases and system design.', category: 'Notes from the backend' }))
+await write('blog', postCard({ title: 'Blog. Notes on Java, Spring Boot, databases and system design.', category: 'Notes from the backend' }))
 for (const post of readPosts()) await write(post.slug, postCard(post))

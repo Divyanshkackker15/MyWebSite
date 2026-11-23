@@ -12,7 +12,7 @@ export default function NotFound() {
       </p>
       <p className="mono fade-now flex gap-8" style={{ '--i': 3 } as React.CSSProperties}>
         <TLink to="/" className="link text-white">Home →</TLink>
-        <TLink to="/blog" className="link text-white">Writing →</TLink>
+        <TLink to="/blog" className="link text-white">Blog →</TLink>
       </p>
     </section>
   )

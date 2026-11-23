@@ -12,8 +12,7 @@ export function Footer() {
           {profile.location}
         </p>
         <ul className="mono grid gap-2 text-grey">
-          <li><TLink to="/blog" className="link text-white">Writing</TLink></li>
-          <li><TLink to="/#work" className="link text-white">Work</TLink></li>
+          <li><TLink to="/#blog" className="link text-white">Blog</TLink></li>
           <li><TLink to="/#process" className="link text-white">Process</TLink></li>
           <li><TLink to="/#contact" className="link text-white">Contact</TLink></li>
         </ul>

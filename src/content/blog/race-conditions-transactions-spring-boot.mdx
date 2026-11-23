@@ -5,6 +5,7 @@ date: 2026-11-22
 category: Spring Boot
 tags: [transactions, concurrency, spring-data-jpa, mysql, locking]
 order: 3
+cover: /images/blog/race-conditions-transactions-spring-boot.webp
 ---
 
 Votezy is an online voting system, and voting has one rule that can never break: **each voter's vote counts exactly once**. When you test by hand, clicking "Vote" twice usually looks fine. Under concurrent load, two requests from the same voter can arrive within the same millisecond, and that's where naive code fails.

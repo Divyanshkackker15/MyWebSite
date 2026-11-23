@@ -5,6 +5,7 @@ date: 2026-11-22
 category: Backend Engineering
 tags: [kafka, event-driven, spring-kafka, microservices, outbox]
 order: 5
+cover: /images/blog/kafka-event-driven-microservices.webp
 ---
 
 "Kafka is a distributed commit log" is accurate, but it doesn't help much when you're starting out. A simpler picture works better: **Kafka is an append-only notebook that many services can read at their own pace.** Producers write facts at the end ("ride 42 was booked"). Consumers keep a bookmark of how far they've read.
