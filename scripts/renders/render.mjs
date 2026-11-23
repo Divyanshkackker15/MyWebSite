@@ -27,7 +27,6 @@ for (const preset of ['volt', 'violet', 'magenta', 'emerald'])
 jobs.push({ name: 'work-gocruze', preset: 'volt', ax: 1.35, ay: 0.1, az: 0.3, t: 5, w: 1600, h: 1100, glow: 0.3 })
 jobs.push({ name: 'work-votezy', preset: 'violet', ax: 0.3, ay: 1.25, az: -0.2, t: 9, w: 1600, h: 1100, glow: 0.3 })
 jobs.push({ name: 'hero-wide', preset: 'hero', ax: 0.55, ay: -0.35, az: 0.18, t: 3, w: 2400, h: 1350, glow: 0.16, dir: 'images' })
-jobs.push({ name: 'hero-tall', preset: 'hero', ax: 0.55, ay: -0.35, az: 0.18, t: 3, w: 1080, h: 1620, glow: 0.16, dir: 'images' })
 
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] })
 for (const j of jobs.filter((j) => !only || j.name.startsWith(only))) {

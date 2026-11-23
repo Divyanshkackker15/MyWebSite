@@ -91,7 +91,7 @@ export function Contact() {
 
   return (
     <section id="contact" aria-labelledby="contact-title" className="wrap border-t border-line py-[16vh] md:py-[20vh]">
-      <p className="mono text-grey" data-reveal>(04) Contact</p>
+      <p className="mono text-grey" data-reveal>(06) Contact</p>
       <h2 id="contact-title" className="display-xl rise mt-6">
         <span className="line-mask"><span>Say hello.</span></span>
       </h2>

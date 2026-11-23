@@ -22,5 +22,12 @@
     // until kackkerdivyansh.in is verified in Resend, mail comes from Resend's test address
     "CONTACT_FROM": "Portfolio <onboarding@resend.dev>"
   },
+  // test builds of branches other than main (Cloudflare "wrangler preview")
+  "previews": {
+    "vars": {
+      "CONTACT_TO": "kackkerdivyansh1115@gmail.com",
+      "CONTACT_FROM": "Portfolio preview <onboarding@resend.dev>"
+    }
+  },
   "observability": { "enabled": true }
 }

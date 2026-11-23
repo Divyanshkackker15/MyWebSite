@@ -4,6 +4,7 @@ import { TLink } from './TLink'
 const links = [
   { to: '/blog', label: 'Writing' },
   { to: '/#work', label: 'Work' },
+  { to: '/#process', label: 'Process' },
   { to: '/#contact', label: 'Contact' },
 ]
 
@@ -14,9 +15,10 @@ export function Nav() {
     <header className="pointer-events-none fixed inset-x-0 top-0 z-50 mix-blend-difference">
       <nav aria-label="Main" className="wrap pointer-events-auto flex items-center justify-between py-5 md:py-6">
         <TLink to="/" className="mono text-white" aria-label="Divyansh Kackker, home">
-          Divyansh Kackker
+          <span className="hidden sm:inline">Divyansh Kackker</span>
+          <span className="sm:hidden">DK</span>
         </TLink>
-        <ul className="flex items-center gap-5 md:gap-9">
+        <ul className="flex items-center gap-4 md:gap-9">
           {links.map((l) => {
             const active = l.to === '/blog' ? pathname.startsWith('/blog') : false
             return (

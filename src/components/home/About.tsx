@@ -9,7 +9,7 @@ export function About() {
       <h2 id="about-title" className="sr-only">About</h2>
       <ScrollWords
         className="display-m mt-10 max-w-[19ch] md:mt-14"
-        text="Java by trade. Curious by default. I build backends that stay up, and I write about everything I learn on the way. Mostly so I remember, partly so you don’t have to."
+        text="Java by trade {java} and curious by default. I build backends {spring} that stay up, data {mysql} that stays right, and systems {kafka} that keep talking under load {docker}. Then I write down what I learned, mostly so I remember, partly so you don’t have to."
       />
 
       <div className="mt-24 grid gap-14 md:mt-36 md:grid-cols-12 md:gap-8">

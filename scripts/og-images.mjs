@@ -61,11 +61,14 @@ const mono = (text, color = '#8A8A8A') =>
 const foot = (left) =>
   h('div', { style: { justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #2A2A2A', paddingTop: 24 } }, mono(left), mono('kackkerdivyansh.in'))
 
+const portrait = `data:image/jpeg;base64,${(await fs.readFile(path.join(root, 'public/images/me/og-portrait.jpg'))).toString('base64')}`
+
 function homeCard() {
   return frame(
-    LIGHT.volt,
+    LIGHT.violet,
+    { type: 'img', props: { src: portrait, width: 400, height: 500, style: { position: 'absolute', right: 40, bottom: 0 } } },
     mono('Divyansh Kackker'),
-    h('div', { style: { flexDirection: 'column', fontSize: 104, fontWeight: 500, letterSpacing: -5, lineHeight: 0.96 } },
+    h('div', { style: { flexDirection: 'column', fontSize: 88, fontWeight: 500, letterSpacing: -4, lineHeight: 0.98, maxWidth: 720 } },
       h('div', {}, 'I build the parts'),
       h('div', { style: { color: '#8A8A8A' } }, 'of software nobody sees.'),
     ),

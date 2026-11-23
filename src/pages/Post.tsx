@@ -9,6 +9,7 @@ import { Img } from '../components/ui/Img'
 import { coverFor, formatDate, getNeighbours, getPost, postBody, relatedPosts } from '../lib/posts'
 import { profile } from '../data/profile'
 import NotFound from './NotFound'
+import { asset } from '../lib/asset'
 
 /** /blog/:slug: one article, set like a printed essay. */
 export default function Post() {
@@ -101,9 +102,12 @@ export default function Post() {
                   <span aria-live="polite">{copied ? 'Link copied' : 'Copy link'}</span>
                 </button>
               </div>
-              <p className="text-grey">
+              <p className="flex items-center gap-4 text-grey">
+                <img src={asset('images/me/avatar-256.webp')} alt="" width={48} height={48} loading="lazy" className="h-12 w-12 shrink-0 rounded-full" />
+                <span>
                 Written by <span className="text-white">{profile.name}</span>, a Java backend developer in {profile.location.split(',')[0]}.{' '}
                 <TLink to="/#contact" className="link text-white">Say hello →</TLink>
+                </span>
               </p>
             </footer>
           </div>

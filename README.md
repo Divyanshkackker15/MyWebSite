@@ -60,6 +60,7 @@ Commit and push. The next build adds the page, its panel on `/blog` and the home
 | `src/data/profile.ts` | name, email, LinkedIn/GitHub links, "Previously", résumé link |
 | `src/data/projects.ts` | the Work section (name, one line, stack, links) |
 | `src/data/categories.ts` | writing categories and their light colours |
+| `src/data/process.ts` | the Before/After cards and the four "How I Work" phases (text, painting, credit) |
 | `public/resume.pdf` | the résumé linked from the site |
 
 Empty links are hidden automatically. Colours and type sizes are tokens at the top of `src/main.css`.
@@ -67,7 +68,9 @@ Empty links are hidden automatically. Colours and type sizes are tokens at the t
 ## How it works
 
 - **Pre-rendering.** `scripts/prerender.mjs` renders every route with React at build time and writes static HTML with its own title, description, Open Graph tags and JSON-LD, so LinkedIn and search engines see full pages. The browser then hydrates that HTML.
-- **Opening sequence.** Pure CSS (`main.css` → "Opening sequence"), so it starts at first paint. It plays once per browser tab and never for visitors who prefer reduced motion.
+- **Opening sequence.** Pure CSS (`main.css` → "Opening sequence"), so it starts at first paint: a small black-and-white window on the portrait, the name sliding out, then the window grows into the hero while colour floods through it. It plays once per browser tab and never for visitors who prefer reduced motion.
+- **Portrait.** `npm run photo` (`scripts/photo/portrait_vibrant.py`) makes the greyscale and colour cutouts, avatar, favicons and preview portrait from `assets-src/headshot-cutout-full.png`. Only colour and light are styled; the face is the original photo.
+- **Before / After and How I Work.** Pinned sections driven by scroll position (`useScrollProgress`): a starfield that warps into streaks, cards that rise past the title, and four phases with public-domain paintings (Vermeer, Wright of Derby, from Wikimedia Commons).
 - **The 3D object.** `src/components/three/Liquid.tsx`: a torus whose surface is moved by noise in the vertex shader, in almost-black clearcoated metal that reflects a small virtual studio. It runs live only on desktop with a mouse and WebGL2, loads after the page is idle, and stops rendering off-screen. Everyone else sees still renders of the same scene.
 - **Still renders.** `npm run renders` (with `npm run dev` running) re-creates the article covers, project visuals and hero posters in `public/images/`. Run it only if you change the object.
 - **Motion.** CSS transitions plus one IntersectionObserver (`useReveal`) for reveals; small scroll handlers for the word-by-word About text and the sideways Writing row; Lenis for smooth wheel scrolling; the View Transitions API between pages. No animation library.
@@ -83,10 +86,10 @@ Empty links are hidden automatically. Colours and type sizes are tokens at the t
 └─ src/
    ├─ data/                profile, projects, categories
    ├─ content/blog/*.mdx   articles
-   ├─ components/home/     Intro, Hero, About, Writing, Work, Contact
+   ├─ components/home/     Intro, Hero, PortraitStage, About, Writing, Work, BeforeAfter, HowIWork, Contact
    ├─ components/blog/     PostPanel, Toc, CodeBlock, Diagrams
-   ├─ components/three/    Liquid (the object), HeroCanvas
-   ├─ components/motion/   SmoothScroll, ScrollWords, HorizontalTrack
+   ├─ components/three/    Liquid (the object), RingCanvas
+   ├─ components/motion/   SmoothScroll, ScrollWords, HorizontalTrack, Starfield, Particles
    ├─ components/layout/   Nav, Footer, TLink (page transitions)
    └─ pages/               Home, Blog, Post, NotFound
 ```

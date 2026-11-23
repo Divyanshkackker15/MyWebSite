@@ -107,7 +107,7 @@ function jsonLd(meta: PageMeta, url: string, image: string) {
     name: profile.name,
     jobTitle: profile.title,
     url: SITE,
-    image: SITE + '/images/portrait-bw.webp',
+    image: SITE + '/images/me/avatar-512.png',
     address: { '@type': 'PostalAddress', addressLocality: 'Bhopal', addressCountry: 'IN' },
     sameAs: Object.values(profile.links).filter(Boolean),
   }

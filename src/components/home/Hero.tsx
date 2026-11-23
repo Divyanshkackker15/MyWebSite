@@ -1,90 +1,69 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { asset } from '../../lib/asset'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { profile } from '../../data/profile'
+import { PortraitStage } from './PortraitStage'
 
-const HeroCanvas = lazy(() => import('../three/HeroCanvas'))
+const Particles = lazy(() => import('../motion/Particles'))
 
-/** Live 3D only where it will run well: a mouse, a large screen, WebGL2, motion allowed. */
-function canRun3D() {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
-  if (!window.matchMedia('(min-width: 900px) and (hover: hover) and (pointer: fine)').matches) return false
-  const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } }
-  if (nav.connection?.saveData || (nav.deviceMemory && nav.deviceMemory < 4)) return false
-  try {
-    return Boolean(document.createElement('canvas').getContext('webgl2'))
-  } catch {
-    return false
-  }
-}
-
-const lines = ['I build the parts', 'of software nobody sees.']
-
+/**
+ * Hero: the colour portrait on black, a dotted ring drawing around the
+ * head, drifting light particles, and the name set huge on both sides.
+ * Everything here animates with CSS from first paint; only the particles
+ * need JavaScript, and they load after the page is idle.
+ */
 export function Hero() {
-  const [live, setLive] = useState(false)
-  const [ready, setReady] = useState(false)
-  const section = useRef<HTMLElement>(null)
+  const [particles, setParticles] = useState(false)
 
-  // start the 3D scene once the page is idle (after the intro on a first visit)
   useEffect(() => {
-    if (!canRun3D()) return
-    const delay = document.documentElement.classList.contains('intro-play') ? 2600 : 300
-    const t = window.setTimeout(() => {
-      const start = () => setLive(true)
-      if ('requestIdleCallback' in window) window.requestIdleCallback(start, { timeout: 1500 })
-      else start()
-    }, delay)
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const delay = document.documentElement.classList.contains('intro-play') ? 2600 : 200
+    const t = window.setTimeout(() => setParticles(true), delay)
     return () => clearTimeout(t)
   }, [])
 
   return (
-    <section ref={section} aria-label="Introduction" className="relative h-[100svh] min-h-[620px] overflow-hidden">
-      {/* still render: shown on phones, without WebGL, and until the live scene is ready */}
-      <picture className={`absolute inset-0 transition-opacity duration-[1200ms] ${ready ? 'opacity-0' : 'opacity-100'}`}>
-        <source media="(orientation: portrait)" srcSet={`${asset('images/hero-tall-sm.webp')} 540w, ${asset('images/hero-tall.webp')} 1080w`} sizes="100vw" />
-        <img
-          src={asset('images/hero-wide.webp')}
-          srcSet={`${asset('images/hero-wide-sm.webp')} 1200w, ${asset('images/hero-wide.webp')} 2400w`}
-          sizes="100vw"
-          alt=""
-          width={2400}
-          height={1350}
-          fetchPriority="high"
-          className="hero-still h-full w-full object-cover"
-        />
-      </picture>
+    <section aria-label="Introduction" className="hero relative h-[100svh] min-h-[600px] overflow-hidden">
+      <PortraitStage className="hero__stage" colourClass="hero__colour" mono={false} />
 
-      {live && (
-        <div className={`absolute inset-0 transition-opacity duration-[1200ms] ${ready ? 'opacity-100' : 'opacity-0'}`}>
-          <div aria-hidden="true" className="hero-glow absolute inset-0" />
-          <Suspense fallback={null}>
-            <HeroCanvas section={section} onReady={() => setReady(true)} />
-          </Suspense>
-        </div>
+      {particles && (
+        <Suspense fallback={null}>
+          <Particles className="pointer-events-none absolute inset-0 h-full w-full" />
+        </Suspense>
       )}
 
-      {/* fade into the page below */}
-      <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black via-black/70 to-transparent" />
+      {/* dotted ring around the head */}
+      <svg aria-hidden="true" className="hero__ring" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="96" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeDasharray="0.1 5.4" />
+        <circle cx="100" cy="100" r="88" fill="none" stroke="currentColor" strokeWidth="0.6" strokeLinecap="round" strokeDasharray="0.1 2.6" opacity="0.5" />
+      </svg>
 
-      <div className="hero-type wrap absolute inset-x-0 bottom-0 pb-8 md:pb-12">
-        <h1 className="display-hero rise-now text-center">
-          <span className="sr-only">{profile.name}: </span>
-          {lines.map((l, i) => (
-            <span key={l} className="line-mask" style={{ '--i': i } as React.CSSProperties}>
-              <span className="ink-fade">{l}</span>
-            </span>
-          ))}
+      {/* fade into the page below */}
+      <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[34%] bg-gradient-to-t from-black via-black/75 to-transparent" />
+
+      <div className="hero-type absolute inset-0">
+        <h1 className="sr-only">
+          {profile.name}, Java backend developer. I build the parts of software nobody sees.
         </h1>
-        <div className="mt-8 flex items-end justify-between gap-6 md:mt-10">
-          <p className="mono fade-now max-w-[24ch] text-grey" style={{ '--i': 3 } as React.CSSProperties}>
-            {profile.name}
+        <div className="hero__left">
+          <div aria-hidden="true" className="hero__name rise-now">
+            <span className="line-mask"><span>{profile.firstName}</span></span>
+          </div>
+          <p className="hero__meta mono fade-now text-grey" style={{ '--i': 4 } as React.CSSProperties}>
+            Java backend developer
             <br />
-            Java backend developer, writing from {profile.location.split(',')[0]}
-          </p>
-          <p className="mono fade-now text-right text-grey" style={{ '--i': 4 } as React.CSSProperties}>
-            Scroll
-            <span aria-hidden="true" className="scroll-cue ml-2 inline-block">↓</span>
+            {profile.location}
           </p>
         </div>
+        <div className="hero__right">
+          <p aria-hidden="true" className="hero__line fade-now" style={{ '--i': 3 } as React.CSSProperties}>
+            I build the parts of software nobody sees.
+          </p>
+          <div aria-hidden="true" className="hero__name rise-now" style={{ '--i': 2 } as React.CSSProperties}>
+            <span className="line-mask"><span>{profile.lastName}</span></span>
+          </div>
+        </div>
+        <p className="hero__scroll mono fade-now text-grey" style={{ '--i': 5 } as React.CSSProperties}>
+          Scroll <span aria-hidden="true" className="scroll-cue ml-2 inline-block">↓</span>
+        </p>
       </div>
     </section>
   )
