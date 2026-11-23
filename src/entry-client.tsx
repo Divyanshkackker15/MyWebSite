@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { preloadRoute, prefetchOtherPages } from './routes'
 import './main.css'
+import { animateFavicon } from './lib/favicon'
 
 /**
  * Browser entry.
@@ -25,6 +26,8 @@ const app = (
 
 preloadRoute(window.location.pathname).then(() => {
   ;(window as unknown as { __dkReady: boolean }).__dkReady = true
+  document.documentElement.classList.add('dk-ready')
+  animateFavicon()
   if (container.firstElementChild) hydrateRoot(container, app)
   else createRoot(container).render(app)
   prefetchOtherPages()

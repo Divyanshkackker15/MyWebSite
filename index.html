@@ -4,29 +4,54 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <!--app-head-->
     <script>
-      // Before first paint: mark JS as available (enables reveal animations)
-      // and decide whether the opening sequence plays on the home page:
-      // once per browser tab, never with reduced motion.
+      // Before first paint: mark JS as available (enables reveal animations),
+      // pick the theme (saved choice, else the OS setting), and decide whether
+      // the opening sequence plays on the home page: once per browser tab,
+      // never with reduced motion.
       ;(function () {
-        var c = document.documentElement.classList
+        var d = document.documentElement, c = d.classList
         c.add('js')
+        var theme = null
+        try { theme = localStorage.getItem('dk-theme') } catch (e) {}
+        if (theme !== 'light' && theme !== 'dark') theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        d.setAttribute('data-theme', theme)
+        var meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#f4f3ef' : '#000000')
         var skip = false
         try { skip = !!sessionStorage.getItem('dk-intro') } catch (e) {}
         if (skip || matchMedia('(prefers-reduced-motion: reduce)').matches) c.add('intro-skip')
         else c.add('intro-play')
+        // the loader only appears when the opening sequence isn't playing, and only if loading is slow
+        if (!c.contains('intro-play')) c.add('dk-loading')
         // if the app never starts (blocked script, old browser), show everything
-        setTimeout(function () { if (!window.__dkReady) c.remove('js') }, 5000)
+        setTimeout(function () { if (!window.__dkReady) c.remove('js'); c.add('dk-ready') }, 5000)
       })()
     </script>
+    <style>
+      /* initial loader: the D signature and a hairline, shown only after 350 ms of waiting */
+      #dk-loader { position: fixed; inset: 0; z-index: 200; display: none; place-items: center; align-content: center; gap: 18px; background: #000; color: #f5f5f5; pointer-events: none; }
+      html[data-theme='light'] #dk-loader { background: #f4f3ef; color: #141414; }
+      html.dk-loading #dk-loader { display: grid; opacity: 0; animation: dk-l-in 0.4s ease 0.35s forwards; }
+      html.dk-ready #dk-loader { animation: dk-l-out 0.45s ease forwards; }
+      .dk-loader__mark { font: 64px/1 'Brush Script MT', 'Lucida Handwriting', cursive; clip-path: inset(0 100% 0 0); animation: dk-l-draw 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.4s forwards; }
+      .dk-loader__bar { width: 72px; height: 1px; background: currentColor; opacity: 0.35; transform-origin: left; transform: scaleX(0); animation: dk-l-bar 1.6s cubic-bezier(0.65, 0, 0.35, 1) 0.4s infinite; }
+      @keyframes dk-l-in { to { opacity: 1; } }
+      @keyframes dk-l-out { from { opacity: 1; } to { opacity: 0; visibility: hidden; } }
+      @keyframes dk-l-draw { to { clip-path: inset(0 0 0 0); } }
+      @keyframes dk-l-bar { 0% { transform: scaleX(0); transform-origin: left; } 50% { transform: scaleX(1); transform-origin: left; } 51% { transform-origin: right; } 100% { transform: scaleX(0); transform-origin: right; } }
+      @media (prefers-reduced-motion: reduce) { #dk-loader, .dk-loader__mark, .dk-loader__bar { animation-duration: 0.01ms !important; } }
+    </style>
   </head>
   <body>
+    <div id="dk-loader" aria-hidden="true"><span class="dk-loader__mark">D</span><span class="dk-loader__bar"></span></div>
     <div id="root"><!--app-html--></div>
     <script type="module" src="/src/entry-client.tsx"></script>
   </body>

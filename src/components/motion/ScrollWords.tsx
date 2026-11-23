@@ -23,7 +23,7 @@ const CHIPS = {
 function glyphColour(hex: string) {
   const n = parseInt(hex, 16)
   const lum = (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255
-  return lum < 0.3 ? '#f5f5f5' : `#${hex}`
+  return lum < 0.3 ? 'currentColor' : `#${hex}`
 }
 
 export function ScrollWords({ text, className = '', as: Tag = 'p' }: { text: string; className?: string; as?: 'p' | 'h2' }) {

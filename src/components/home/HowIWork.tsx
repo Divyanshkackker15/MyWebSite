@@ -5,7 +5,7 @@ import { scrollToTarget, useLenis } from '../motion/SmoothScroll'
 import { TLink } from '../layout/TLink'
 
 /**
- * How I Work: four phases in a pinned layout. Left, the list of phases;
+ * How We Sprint: four phases in a pinned layout. Left, the list of phases;
  * right, the active phase in a bracketed card above its painting. Scrolling
  * moves through the phases (about a quarter of the section each), and
  * clicking a phase scrolls to it. Below 1024px it's a simple stacked list.
@@ -34,25 +34,34 @@ export function HowIWork() {
 
   return (
     <section id="process" aria-labelledby="process-title" className="border-t border-line">
-      <header className="wrap pb-16 pt-[16vh] text-center md:pt-[20vh]">
-        <p className="mono text-grey" data-reveal>(05) Process</p>
-        <h2 id="process-title" className="display-l rise mt-6">
-          <span className="line-mask"><span>How I Work.</span></span>
+      <div className="wrap process__topline mono pt-24 text-grey" data-reveal>
+        <span>[ <em>04</em> / <em>05</em> ]</span>
+        <span>How we sprint</span>
+      </div>
+      <header className="wrap pb-16 pt-[8vh] text-center md:pt-[10vh]">
+        <h2 id="process-title" className="process__title rise">
+          <span className="line-mask"><span>How We Sprint</span></span>
         </h2>
-        <p className="mx-auto mt-8 max-w-[46ch] text-lg leading-relaxed text-grey" data-reveal style={{ '--d': 120 } as React.CSSProperties}>
-          Software is a sequence of decisions. I make them in the open and in short cycles, so you always know what is being built, why,
-          and what it will cost to change later.
+        <p className="mx-auto mt-8 max-w-[52ch] text-lg leading-relaxed text-grey" data-reveal style={{ '--d': 120 } as React.CSSProperties}>
+          I work in two-week sprints. Short enough to keep momentum and change course cheaply, long enough to build something worth
+          showing at the end of each one.
         </p>
-        <div aria-hidden="true" className="mx-auto mt-16 h-px max-w-3xl bg-gradient-to-r from-transparent via-line-2 to-transparent" />
+        <div aria-hidden="true" className="mx-auto mt-14 h-px max-w-3xl bg-gradient-to-r from-transparent via-line-2 to-transparent" />
       </header>
 
       {/* large screens: pinned */}
       <div ref={track} className="process__track hidden lg:block">
         <div className="process__frame wrap">
-          <nav aria-label="Phases" className="process__list frame">
-            <p className="flex items-center justify-between px-5 pb-6 pt-5 text-white">
+         <div className="process__shell">
+          <nav aria-label="Phases" className="process__list">
+            <p className="flex items-center justify-between px-5 pb-8 pt-7 text-white">
               <span className="title">Kackker</span>
-              <span aria-hidden="true" className="mono text-grey">04</span>
+              <svg aria-hidden="true" viewBox="0 0 20 20" width="20" height="20" className="text-white">
+                <circle cx="6" cy="6" r="4" fill="currentColor" />
+                <circle cx="14" cy="7" r="3.4" fill="currentColor" />
+                <circle cx="7" cy="14" r="3.4" fill="currentColor" />
+                <circle cx="14.5" cy="14.5" r="4" fill="currentColor" />
+              </svg>
             </p>
             <ol className="grid gap-2 px-3 pb-3">
               {phases.map((ph, i) => (
@@ -101,6 +110,7 @@ export function HowIWork() {
               <figcaption className="mono">{phases[active].credit} · Public domain</figcaption>
             </figure>
           </div>
+         </div>
         </div>
       </div>
 

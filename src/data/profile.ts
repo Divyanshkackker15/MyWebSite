@@ -16,6 +16,11 @@ export const profile = {
   links: {
     linkedin: 'https://www.linkedin.com/in/kackkerdivyansh1115/',
     github: 'https://github.com/Divyanshkackker15',
+    // not connected yet: add a URL and its card appears in Contact
+    x: '',
+    instagram: '',
+    youtube: '',
+    whatsapp: '',
   },
   /** one line, shown small in About */
   previously: [

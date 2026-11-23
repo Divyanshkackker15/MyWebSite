@@ -1,10 +1,60 @@
+import {
+  siApachekafka,
+  siDocker,
+  siGit,
+  siKubernetes,
+  siMysql,
+  siOpenjdk,
+  siRedis,
+  siSpring,
+  siSpringboot,
+  siSpringsecurity,
+  type SimpleIcon,
+} from 'simple-icons'
 import { ScrollWords } from '../motion/ScrollWords'
-import { hasLink, profile } from '../../data/profile'
+import { profile } from '../../data/profile'
 import { asset } from '../../lib/asset'
 
+/**
+ * What I actually work with, grouped. Keep it honest: only tools used in real projects.
+ * `img` uses the 3D icon from the Figma "Tech Stack 3D Icon Set" (public/images/stack);
+ * tools that set has no icon for use their simple-icons glyph.
+ */
+const stack: { group: string; items: { name: string; icon: SimpleIcon; img?: string }[] }[] = [
+  {
+    group: 'Backend',
+    items: [
+      { name: 'Java', icon: siOpenjdk, img: 'java' },
+      { name: 'Spring Boot', icon: siSpringboot },
+      { name: 'Spring Security', icon: siSpringsecurity },
+      { name: 'Spring AI', icon: siSpring },
+    ],
+  },
+  {
+    group: 'Data',
+    items: [
+      { name: 'MySQL', icon: siMysql },
+      { name: 'Redis', icon: siRedis, img: 'redis' },
+      { name: 'Kafka', icon: siApachekafka },
+    ],
+  },
+  {
+    group: 'Delivery',
+    items: [
+      { name: 'Docker', icon: siDocker },
+      { name: 'Kubernetes', icon: siKubernetes },
+      { name: 'Git', icon: siGit, img: 'git' },
+    ],
+  },
+]
+
+/**
+ * About: the scroll-lit statement, then two short paragraphs beside the
+ * stack. No portrait here; the hero already carries the photograph.
+ */
 export function About() {
   return (
-    <section id="about" aria-labelledby="about-title" className="wrap py-[18vh] md:py-[24vh]">
+    <section id="about" aria-labelledby="about-title" className="wrap py-[16vh] md:py-[20vh]">
       <p className="mono text-grey" data-reveal>(01) About</p>
       <h2 id="about-title" className="sr-only">About</h2>
       <ScrollWords
@@ -12,63 +62,38 @@ export function About() {
         text="Java by trade {java} and curious by default. I build backends {spring} that stay up, data {mysql} that stays right, and systems {kafka} that keep talking under load {docker}. Then I write down what I learned, mostly so I remember, partly so you don’t have to."
       />
 
-      <div className="mt-24 grid gap-14 md:mt-36 md:grid-cols-12 md:gap-8">
-        <figure className="md:col-span-4" data-reveal="clip">
-          <img
-            src={asset('images/portrait-bw.webp')}
-            srcSet={`${asset('images/portrait-bw-sm.webp')} 480w, ${asset('images/portrait-bw.webp')} 960w`}
-            sizes="(min-width: 768px) 30vw, 90vw"
-            alt={`${profile.name}, portrait`}
-            width={960}
-            height={1200}
-            loading="lazy"
-            className="aspect-[4/5] w-full max-w-[420px] border border-line object-cover"
-          />
-        </figure>
+      <div className="mt-20 grid gap-12 border-t border-line pt-12 md:mt-28 md:grid-cols-12 md:gap-8 md:pt-16">
+        <div className="grid content-start gap-5 text-lg leading-relaxed text-grey md:col-span-5" data-reveal>
+          <p>
+            I’m <span className="text-white">{profile.firstName}</span>, a backend developer from {profile.location.split(',')[0]}. I like
+            systems you can reason about: clean APIs, honest data models, transactions that hold when everyone clicks at once.
+          </p>
+          <p>
+            Most days that means Java, Spring Boot and MySQL. Some days it’s Kafka, Redis, Docker, or an idea I can’t leave alone. The blog
+            is where all of it ends up.
+          </p>
+        </div>
 
-        <div className="grid content-between gap-14 md:col-span-7 md:col-start-6">
-          <div className="grid max-w-[34rem] gap-5 text-lg leading-relaxed text-grey" data-reveal>
-            <p>
-              I’m <span className="text-white">{profile.firstName}</span>, a backend developer from Bhopal. I like systems you can reason
-              about: clean APIs, honest data models, transactions that hold when everyone clicks at once.
-            </p>
-            <p>
-              Most days that means Java, Spring Boot and MySQL. Some days it’s Kafka, Redis, Docker, or an idea I can’t leave alone. The
-              writing below is where all of it ends up.
-            </p>
-          </div>
-
-          <div className="grid gap-10 sm:grid-cols-2" data-reveal style={{ '--d': 150 } as React.CSSProperties}>
-            <div>
-              <p className="mono text-mute">Previously</p>
-              <ul className="mt-4 grid gap-3">
-                {profile.previously.map((p) => (
-                  <li key={p.org} className="border-t border-line pt-3">
-                    <span className="block text-white">{p.org}</span>
-                    <span className="text-sm text-grey">{p.role}, {p.year}</span>
+        <div className="grid content-start gap-8 md:col-span-6 md:col-start-7" data-reveal style={{ '--d': 120 } as React.CSSProperties}>
+          {stack.map((g) => (
+            <div key={g.group} className="about__group">
+              <p className="mono text-mute">{g.group}</p>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {g.items.map((t) => (
+                  <li key={t.name} className="about__chip">
+                    {t.img ? (
+                      <img src={asset(`images/stack/${t.img}.webp`)} alt="" width={18} height={18} loading="lazy" className="about__icon3d" />
+                    ) : (
+                      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                        <path d={t.icon.path} fill="currentColor" />
+                      </svg>
+                    )}
+                    {t.name}
                   </li>
                 ))}
               </ul>
             </div>
-            <div>
-              <p className="mono text-mute">Elsewhere</p>
-              <ul className="mt-4 grid gap-3">
-                {hasLink(profile.links.linkedin) && (
-                  <li className="border-t border-line pt-3">
-                    <a href={profile.links.linkedin} target="_blank" rel="noopener noreferrer" className="link text-white">LinkedIn ↗</a>
-                  </li>
-                )}
-                {hasLink(profile.links.github) && (
-                  <li className="border-t border-line pt-3">
-                    <a href={profile.links.github} target="_blank" rel="noopener noreferrer" className="link text-white">GitHub ↗</a>
-                  </li>
-                )}
-                <li className="border-t border-line pt-3">
-                  <a href={profile.resumeUrl} target="_blank" rel="noopener" className="link text-white">Résumé (PDF) ↗</a>
-                </li>
-              </ul>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>

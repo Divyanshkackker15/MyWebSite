@@ -1,7 +1,7 @@
 import { asset } from '../lib/asset'
 
 /**
- * Copy for the Before/After section and the four phases of "How I Work".
+ * Copy for the Before/After section and the four phases of "How We Sprint".
  * Edit freely; the sections only read from here.
  */
 export interface Card {
@@ -50,37 +50,38 @@ export interface Phase {
   dot: string
 }
 
+/** How We Sprint: one two-week cycle, four phases. Paintings are public domain (Wikimedia Commons). */
 export const phases: Phase[] = [
   {
     n: '01',
-    name: 'Discover',
-    body: 'Before a line of code: the problem, the people who have it, the constraints and what "done" means. I ask the questions that are expensive to answer later, and we agree on scope and a timeline in writing.',
-    image: asset('images/phases/discover'),
-    credit: 'Johannes Vermeer, The Astronomer, 1668',
-    dot: '#f04a4a',
+    name: 'The Rendezvous',
+    body: 'Every sprint opens with a call: what shipped last time, what matters next, and what "done" means for the next two weeks. I leave it with a written plan and the questions that are expensive to answer later.',
+    image: asset('images/phases/rendezvous'),
+    credit: 'Caravaggio, The Calling of Saint Matthew, 1599–1600',
+    dot: '#ff6a2b',
   },
   {
     n: '02',
-    name: 'Design',
-    body: 'System design on paper first: API contracts, database schema, data flow and how each part fails. A design you can review in an hour is far cheaper than a rewrite in a month.',
-    image: asset('images/phases/design'),
-    credit: 'Johannes Vermeer, The Geographer, 1669',
-    dot: '#8b5cf6',
+    name: 'The Silence',
+    body: 'Heads down. API contracts, schema and code, with tests written alongside. Quiet is not the same as dark: you get a short written update twice a week, and messages get an answer the same day.',
+    image: asset('images/phases/silence'),
+    credit: 'Caravaggio, Saint Jerome Writing, c. 1605–06',
+    dot: '#ffd60a',
   },
   {
     n: '03',
-    name: 'Build',
-    body: 'Spring Boot in short sprints, JUnit 5 tests written alongside the code, and a working demo every week. You see progress as running software, never as a status report.',
-    image: asset('images/phases/build'),
-    credit: 'Joseph Wright of Derby, An Experiment on a Bird in the Air Pump, 1768',
-    dot: '#3d7bff',
+    name: 'The Exhibition',
+    body: 'Every second Friday I show running software, not slides: the endpoints, the data, the failure cases and the numbers. Over a call, or across a table if you are in Bhopal.',
+    image: asset('images/phases/exhibition'),
+    credit: 'Jean-Léon Gérôme, Pollice Verso, 1872',
+    dot: '#c6f432',
   },
   {
     n: '04',
-    name: 'Launch & Support',
-    body: 'Docker images, deployment, documentation and a clean handover, so the system can outlive my involvement. Then a support window for the fixes only real users reveal.',
-    image: asset('images/phases/launch'),
-    credit: 'Joseph Wright of Derby, A Philosopher Lecturing on the Orrery, c. 1766',
-    dot: '#1fbf8a',
+    name: 'The Alterations',
+    body: 'You send one list of changes. Small ones come back within 48 hours; bigger ones go into the plan for the next sprint. Then the next Rendezvous starts the loop again.',
+    image: asset('images/phases/alterations'),
+    credit: 'Caravaggio, The Cardsharps, c. 1594',
+    dot: '#3cc8ff',
   },
 ]

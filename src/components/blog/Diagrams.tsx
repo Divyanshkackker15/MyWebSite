@@ -66,7 +66,7 @@ export function Compare({
       {[left, right].map((side, i) => (
         <div key={side.title} className="bg-coal p-5 md:p-6">
           <p className={`mono ${i ? 'text-white' : 'text-grey'}`}>{side.title}</p>
-          <ul className="mt-4 grid gap-2.5 text-[15px] text-[#c9c9c9]">
+          <ul className="mt-4 grid gap-2.5 text-[15px] text-white/80">
             {side.points.map((p) => (
               <li key={p} className="relative pl-4">
                 <span aria-hidden="true" className={`absolute left-0 top-[0.65em] h-1 w-1 ${i ? 'bg-white' : 'bg-grey'}`} />

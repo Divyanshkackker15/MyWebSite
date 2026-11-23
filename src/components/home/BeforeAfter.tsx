@@ -81,7 +81,7 @@ export function BeforeAfter() {
         <div ref={frame} className="ba__frame">
           {live !== 'none' && (
             <Suspense fallback={null}>
-              <Starfield warpRef={warp} className="absolute inset-0 h-full w-full" />
+              <Starfield warpRef={warp} className="starfield absolute inset-0 h-full w-full" />
             </Suspense>
           )}
           <div className="ba__object" aria-hidden="true">
@@ -94,7 +94,7 @@ export function BeforeAfter() {
             )}
           </div>
 
-          <p className="mono ba__kicker text-grey">(04) The difference</p>
+          <p className="mono ba__kicker text-grey">(03) The difference</p>
           <h2 id="ba-title" className="ba__title">
             <span className="ba__word ba__word--before">Before</span>
             <span className="ba__word ba__word--after">After</span>

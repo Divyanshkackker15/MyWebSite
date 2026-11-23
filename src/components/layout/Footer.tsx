@@ -33,7 +33,7 @@ export function Footer() {
       </div>
       {/* the name, set huge and cut by the page edge */}
       <svg aria-hidden="true" viewBox="0 0 1000 235" className="block w-full select-none" preserveAspectRatio="xMidYMax slice">
-        <text x="500" y="228" textAnchor="middle" fill="#161616" fontSize="300" fontWeight="450" letterSpacing="-19" fontFamily="var(--font-sans)">
+        <text x="500" y="228" textAnchor="middle" fill="currentColor" className="text-coal-2" fontSize="300" fontWeight="450" letterSpacing="-19" fontFamily="var(--font-sans)">
           Kackker
         </text>
       </svg>
